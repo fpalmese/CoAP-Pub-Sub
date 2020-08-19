@@ -72,6 +72,7 @@ class PsResource(Resource):
 				return res
 		# Create new Ps Resource with the new uri path
 		resource = PsResource(base+"/"+path,self.cs)
+		resource.allow_children = False
 		topicData.pop(0);
 		attr = {}
 		attr["obs"] = ""
@@ -80,6 +81,8 @@ class PsResource(Resource):
 			key,val = d.split("=")[0],d.split("=")[1]
 			print("[BROKER] Attr: "+key+" Val:"+val)
 			if(key == 'ct'):
+				if(val == '40'):
+					resource.allow_children = True
 				val = [val]
 				print(val)
 			attr[key] = val
@@ -104,6 +107,12 @@ class PsResource(Resource):
 			response.code = defines.Codes.FORBIDDEN.number
 			response.payload = child_res.name + " Already Exists"
 			return self,response
+		
+		if(not self.allow_children):
+			response.code = defines.Codes.FORBIDDEN.number
+			response.payload = self.name + " cannot have children"
+			return self, response
+
 		self.children.append(child_res)
 		self.cs.add_resource(child_res.name,child_res)
 		response.payload = child_res.name + " Created"

@@ -13,7 +13,7 @@ class RequestLayer(object):
 
     def receive_request(self, transaction):
         """
-        Handle request and execute the requested method
+        Handle the request and execute the requested method
 
         :type transaction: Transaction
         :param transaction: the transaction that owns the request
@@ -35,7 +35,7 @@ class RequestLayer(object):
 
     def send_request(self, request):
         """
-         Dummy function. Used to do not broke the layered architecture.
+         Dummy function. Used to not break the layered architecture.
 
         :type request: Request
         :param request: the request
@@ -62,11 +62,16 @@ class RequestLayer(object):
             try:
                 resource = self._server.root[path]
             except KeyError:
+
                 resource = None
             if resource is None or path == '/':
                 # Not Found
                 transaction.response.code = defines.Codes.NOT_FOUND.number
             else:
+                if transaction.request.observe == 1:
+                    transaction.response.code = defines.Codes.CHANGED.number
+                    transaction.response.payload = "Unsubscribed Successfully"
+                    return transaction
                 transaction.resource = resource
                 transaction = self._server.resourceLayer.get_resource(transaction)
         return transaction

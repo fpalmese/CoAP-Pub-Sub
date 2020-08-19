@@ -15,7 +15,7 @@ class Resource(object):
         :param coap_server: the server that own the resource
         :param visible: if the resource is visible
         :param observable: if the resource is observable
-        :param allow_children: if the resource could has children
+        :param allow_children: if the resource could have children
         """
         # The attributes of this resource.
         self._attributes = {}
@@ -242,6 +242,16 @@ class Resource(object):
         :return: True, if allow children
         """
         return self._allow_children
+
+    @allow_children.setter
+    def allow_children(self, v):
+        """
+        Set the allow_children value.
+
+        :param v: true or false value
+        """
+        assert isinstance(v, bool)
+        self._allow_children = v
 
     @property
     def observe_count(self):
