@@ -326,6 +326,98 @@ class ResourceLayer(object):
 
         return transaction
 
+    def update_new_resource(self, transaction):
+        """
+        Render a PUT request on a not existing resource.
+
+        :param transaction: the transaction
+        :return: the response
+        """
+        # If-Match
+        if transaction.request.if_match:
+            if None not in transaction.request.if_match and str(transaction.resource.etag) \
+                    not in transaction.request.if_match:
+                transaction.response.code = defines.Codes.PRECONDITION_FAILED.number
+                return transaction
+        # If-None-Match
+        if transaction.request.if_none_match:
+            transaction.response.code = defines.Codes.PRECONDITION_FAILED.number
+            return transaction
+
+        method = getattr(transaction.resource, "render_PUT", None)
+
+        try:
+            resource = method(request=transaction.request)
+        except NotImplementedError:
+            try:
+                method = getattr(transaction.resource, "render_PUT_advanced", None)
+                ret = method(request=transaction.request, response=transaction.response)
+                if isinstance(ret, tuple) and len(ret) == 2 and isinstance(ret[1], Response) \
+                        and isinstance(ret[0], Resource):
+                    # Advanced handler
+                    resource, response = ret
+                    resource.changed = True
+                    resource.observe_count += 1
+                    transaction.resource = resource
+                    transaction.response = response
+                    if transaction.response.code is None:
+                        transaction.response.code = defines.Codes.CREATED.number
+                    return transaction
+                elif isinstance(ret, tuple) and len(ret) == 3 and isinstance(ret[1], Response) \
+                        and isinstance(ret[0], Resource):
+                    # Advanced handler separate
+                    resource, response, callback = ret
+                    ret = self._handle_separate_advanced(transaction, callback)
+                    if not isinstance(ret, tuple) or \
+                            not (isinstance(ret[0], Resource) and isinstance(ret[1], Response)):  # pragma: no cover
+                        transaction.response.code = defines.Codes.INTERNAL_SERVER_ERROR.number
+                        return transaction
+                    resource, response = ret
+                    resource.changed = True
+                    resource.observe_count += 1
+                    transaction.resource = resource
+                    transaction.response = response
+                    if transaction.response.code is None:
+                        transaction.response.code = defines.Codes.CREATED.number
+                    return transaction
+                else:
+                    raise NotImplementedError
+            except NotImplementedError:
+                transaction.response.code = defines.Codes.METHOD_NOT_ALLOWED.number
+                return transaction
+
+        if isinstance(resource, Resource):
+            pass
+        elif isinstance(resource, tuple) and len(resource) == 2:
+            resource, callback = resource
+            resource = self._handle_separate(transaction, callback)
+            if not isinstance(resource, Resource):  # pragma: no cover
+                transaction.response.code = defines.Codes.INTERNAL_SERVER_ERROR.number
+                return transaction
+        else:  # pragma: no cover
+            # Handle error
+            transaction.response.code = defines.Codes.INTERNAL_SERVER_ERROR.number
+            return transaction
+
+        if resource.etag is not None:
+            transaction.response.etag = resource.etag
+
+        transaction.response.code = defines.Codes.CREATED.number
+
+        transaction.response.payload = None
+
+        assert (isinstance(resource, Resource))
+        if resource.etag is not None:
+            transaction.response.etag = resource.etag
+        if resource.max_age is not None:
+            transaction.response.max_age = resource.max_age
+
+        resource.changed = True
+        resource.observe_count += 1
+        transaction.resource = resource
+
+        return transaction
+
     def _handle_separate(self, transaction, callback):
         # Handle separate
         if not transaction.request.acknowledged:
@@ -368,6 +460,7 @@ class ResourceLayer(object):
                     transaction.response = response
                     if transaction.response.code is None:
                         transaction.response.code = defines.Codes.DELETED.number
+                    transaction.resource.deleted = True
                     return transaction
                 elif isinstance(ret, tuple) and len(ret) == 3 and isinstance(ret[1], Response) \
                         and isinstance(ret[0], Resource):

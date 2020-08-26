@@ -218,11 +218,13 @@ class CoAP(object):
             self._requestLayer.receive_request(transaction)
 
             if transaction.resource is not None and transaction.resource.changed:
-                self.notify(transaction.resource)
-                transaction.resource.changed = False
+                if transaction.response.code == defines.Codes.CHANGED.number:
+                    self.notify(transaction.resource)
+                    transaction.resource.changed = False
             elif transaction.resource is not None and transaction.resource.deleted:
-                self.notify(transaction.resource)
-                transaction.resource.deleted = False
+                if transaction.response.code == defines.Codes.DELETED.number:
+                    self.notify(transaction.resource, True)
+                    transaction.resource.deleted = False
 
             self._observeLayer.send_response(transaction)
 
@@ -387,7 +389,7 @@ class CoAP(object):
             ack = self._messageLayer.send_empty(transaction, transaction.request, ack)
             self.send_datagram(ack)
 
-    def notify(self, resource):
+    def notify(self, resource, delete = False):
         """
         Notifies the observers of a certain resource.
 
@@ -405,5 +407,7 @@ class CoAP(object):
                 if transaction.response is not None:
                     if transaction.response.type == defines.Types["CON"]:
                         self._start_retransmission(transaction, transaction.response)
-
+                    if delete:
+                        transaction.response.code = defines.Codes.DELETED.number
+                        transaction.response.payload = "/"+transaction.resource.name+ " has been deleted"
                     self.send_datagram(transaction.response)

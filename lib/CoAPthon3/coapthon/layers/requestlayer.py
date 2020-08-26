@@ -67,11 +67,14 @@ class RequestLayer(object):
             if resource is None or path == '/':
                 # Not Found
                 transaction.response.code = defines.Codes.NOT_FOUND.number
+                transaction.response.payload = path+ " NOT FOUND"
             else:
+
                 if transaction.request.observe == 1:
                     transaction.response.code = defines.Codes.CHANGED.number
                     transaction.response.payload = "Unsubscribed Successfully"
                     return transaction
+
                 transaction.resource = resource
                 transaction = self._server.resourceLayer.get_resource(transaction)
         return transaction
@@ -95,6 +98,7 @@ class RequestLayer(object):
             resource = None
         if resource is None:
             transaction.response.code = defines.Codes.NOT_FOUND.number
+            transaction = self._server.resourceLayer.update_new_resource(transaction)
         else:
             transaction.resource = resource
             # Update request

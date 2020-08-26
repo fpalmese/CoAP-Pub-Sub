@@ -37,6 +37,7 @@ class PsResource(Resource):
 		self.content_type = "text/plain"
 		self.payload = ""
 		self.children = []
+		self.parent = None
 
 	"""
 		Handle get requests: observe requests are internally served
@@ -91,6 +92,9 @@ class PsResource(Resource):
 		sys.stdout.flush()    
 		return resource
 
+	def createOnPublish(request):
+		print("we are in the createOnPublish")
+		return PsResource("/ps/topic/topic2",self.cs)
 
 	"""
 		Handle POST request to create resource on this path
@@ -102,12 +106,17 @@ class PsResource(Resource):
 			response.code = defines.Codes.BAD_REQUEST.number
 			response.payload = "Bad Request"
 			return self,response
+		child_res.parent = self
+		
 		# The resource already exists at this topic
 		if(child_res in self.children):
+			
 			response.code = defines.Codes.FORBIDDEN.number
 			response.payload = child_res.name + " Already Exists"
 			return self,response
-		
+		else:
+			payload = " Created"
+		#check if the parent resource admits a child (ct=40)
 		if(not self.allow_children):
 			response.code = defines.Codes.FORBIDDEN.number
 			response.payload = self.name + " cannot have children"
@@ -115,7 +124,8 @@ class PsResource(Resource):
 
 		self.children.append(child_res)
 		self.cs.add_resource(child_res.name,child_res)
-		response.payload = child_res.name + " Created"
+
+		response.payload = child_res.name + payload
 		response.code = defines.Codes.CREATED.number
 		print("[BROKER] Resource "+child_res.name+" created.");
 		sys.stdout.flush()            
@@ -138,9 +148,12 @@ class PsResource(Resource):
 		print("[BROKER] "+self.name+" updated with content: "+request.payload)
 		sys.stdout.flush()            
 		# New resource has been created before passing control to this method
-		if(response.code == defines.Codes.CREATED.number): 
+		"""if(response.code == defines.Codes.CREATED.number): 
 			response.payload = "Created"
 			return self,response
+		"""
+		if(response.code == defines.Codes.NOT_FOUND.number):
+			resource = self.createOnPublish(request)
 		response.payload = "Changed"
 		response.code = defines.Codes.CHANGED.number
 		return self, response
@@ -148,6 +161,7 @@ class PsResource(Resource):
 	"""
 		Handles resource DELETION as well as deletion
 		of possibly present children with a recursive deletion
+		at the end of the recursive deletion, it deletes the resource from the parent children
 	"""
 	def render_DELETE_advanced(self, request, response):
 		if(request.uri_path == "ps"):
@@ -160,6 +174,8 @@ class PsResource(Resource):
 		sys.stdout.flush()    
 		if(len(self.children)>0):
 			delete_subtree(self,True)
+		if(self.parent):
+			self.parent.children.remove(self)
 		return True, response
 
 
