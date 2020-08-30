@@ -409,5 +409,5 @@ class CoAP(object):
                         self._start_retransmission(transaction, transaction.response)
                     if delete:
                         transaction.response.code = defines.Codes.DELETED.number
-                        transaction.response.payload = "/"+transaction.resource.name+ " has been deleted"
+                        transaction.response.payload = transaction.resource.name+ " has been deleted"
                     self.send_datagram(transaction.response)

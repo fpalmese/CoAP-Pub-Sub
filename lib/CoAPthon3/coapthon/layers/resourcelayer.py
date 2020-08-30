@@ -231,7 +231,8 @@ class ResourceLayer(object):
         if parent_resource.allow_children:
                 return self.add_resource(transaction, parent_resource, lp)
         else:
-            transaction.response.code = defines.Codes.METHOD_NOT_ALLOWED.number
+            transaction.response.code = defines.Codes.FORBIDDEN.number
+            transaction.response.payload = "Topic "+path+ "cannot have children."
             return transaction
 
     def update_resource(self, transaction):
@@ -344,14 +345,35 @@ class ResourceLayer(object):
             transaction.response.code = defines.Codes.PRECONDITION_FAILED.number
             return transaction
 
-        method = getattr(transaction.resource, "render_PUT", None)
+
+        path = transaction.request.uri_path
+        topics = path.split("/")
+        for i in range(0,len(topics)):
+            topic = ""
+            for t in topics[0:i+1]:
+                topic = topic+"/"+t
+            try:
+                resource = self._parent.root[topic]
+            except:
+                resource = None
+
+            if resource is not None:
+                prev_topic = topic
+                continue
+            else:
+                parent_resource = self._parent.root[prev_topic]
+                index = i
+                break
+
+
+        method = getattr(parent_resource, "render_PUT", None)
 
         try:
             resource = method(request=transaction.request)
         except NotImplementedError:
             try:
-                method = getattr(transaction.resource, "render_PUT_advanced", None)
-                ret = method(request=transaction.request, response=transaction.response)
+                method = getattr(parent_resource, "render_PUT_advanced", None)
+                ret = method(request=transaction.request, response=transaction.response,index=index)
                 if isinstance(ret, tuple) and len(ret) == 2 and isinstance(ret[1], Response) \
                         and isinstance(ret[0], Resource):
                     # Advanced handler
@@ -360,6 +382,9 @@ class ResourceLayer(object):
                     resource.observe_count += 1
                     transaction.resource = resource
                     transaction.response = response
+                    if transaction.resource is None:
+                        transaction.response.code = defines.Codes.FORBIDDEN.number
+                        return transaction
                     if transaction.response.code is None:
                         transaction.response.code = defines.Codes.CREATED.number
                     return transaction
@@ -383,6 +408,8 @@ class ResourceLayer(object):
                 else:
                     raise NotImplementedError
             except NotImplementedError:
+                if transaction.response.code == defines.Codes.FORBIDDEN.number:
+                    return transaction
                 transaction.response.code = defines.Codes.METHOD_NOT_ALLOWED.number
                 return transaction
 
@@ -456,7 +483,8 @@ class ResourceLayer(object):
                     # Advanced handler
                     delete, response = ret
                     if delete:
-                        del self._parent.root[path]
+                        self._parent.remove_resource(path)
+                        #del self._parent.root[path]
                     transaction.response = response
                     if transaction.response.code is None:
                         transaction.response.code = defines.Codes.DELETED.number

@@ -20,10 +20,11 @@ def delete_subtree(root_resource,base=False):
 		if(len(root_resource.children) == 0 and not base):
 			print("[BROKER] Deleting: "+root_resource.name)
 			root_resource.cs.remove_resource(root_resource.name)
-			return        
-
-
-
+			break      
+	#notify all subscribers that the resource has been deleted			
+	root_resource.cs.notify(root_resource,True)
+ 
+	
 """
 	Base resource for the Publish/Subsribe topic.
 	Follows the Composite Design Pattern to maintain a recursive list 
@@ -44,7 +45,6 @@ class PsResource(Resource):
 		by CoAPthon itself. 
 	"""
 	def render_GET_advanced(self, request, response):
-		print(self.content_type)
 		sys.stdout.flush();           
 		response.payload = self.payload
 		response.code = defines.Codes.CONTENT.number
@@ -85,22 +85,17 @@ class PsResource(Resource):
 				if(val == '40'):
 					resource.allow_children = True
 				val = [val]
-				print(val)
 			attr[key] = val
-		print(attr)
 		resource.attributes = attr
 		sys.stdout.flush()    
 		return resource
 
-	def createOnPublish(request):
-		print("we are in the createOnPublish")
-		return PsResource("/ps/topic/topic2",self.cs)
-
+	
 	"""
 		Handle POST request to create resource on this path
 	"""
 	def render_POST_advanced(self, request, response):
-		child_res = self.createResFromPayload(request.payload,request.uri_path)
+		child_res = self.createResFromPayload(request.payload,"/"+request.uri_path)
 		# The request is not formatted according to RFC
 		if(child_res is None):
 			response.code = defines.Codes.BAD_REQUEST.number
@@ -109,13 +104,17 @@ class PsResource(Resource):
 		child_res.parent = self
 		
 		# The resource already exists at this topic
-		if(child_res in self.children):
 			
+		if(child_res in self.children):
 			response.code = defines.Codes.FORBIDDEN.number
 			response.payload = child_res.name + " Already Exists"
 			return self,response
-		else:
-			payload = " Created"
+		"""
+		if(self.containsChild(child_res.name)):
+			response.code = defines.Codes.FORBIDDEN.number
+			response.payload = child_res.name + " Already Exists"
+			return self,response
+		"""
 		#check if the parent resource admits a child (ct=40)
 		if(not self.allow_children):
 			response.code = defines.Codes.FORBIDDEN.number
@@ -125,19 +124,56 @@ class PsResource(Resource):
 		self.children.append(child_res)
 		self.cs.add_resource(child_res.name,child_res)
 
-		response.payload = child_res.name + payload
+		response.payload = child_res.name + " Created"
 		response.code = defines.Codes.CREATED.number
 		print("[BROKER] Resource "+child_res.name+" created.");
 		sys.stdout.flush()            
 		return self,response
+
+
+
+	def createOnPublish(self,request,response,index):
+		path = request.uri_path
+		topics = path.split("/")
+		base = self.path
+		old_res = self
+		if(not self.allow_children):
+			response.code = defines.Codes.FORBIDDEN.number
+			response.payload = self.name + " cannot have children"
+			return None,response
+
+		for i in range(index,len(topics)):
+			new_res = PsResource(base+"/"+topics[i],self.cs)
+			new_res.parent = old_res
+			if(i<len(topics)-1):
+				new_res.attributes["ct"] = ["40"]
+				new_res.allow_children = True
+				self.cs.add_resource(new_res.name,new_res)
+			old_res.children.append(new_res)
+			base = base+"/"+topics[i]
+			old_res = new_res
+
+		new_res.payload = request.payload
+		new_res.allow_children = False
+		self.cs.add_resource(new_res.name,new_res)
+		response.payload = "Created"
+		response.code = defines.Codes.CREATED.number
+		sys.stdout.flush()
+		return new_res,response
+
+
 
 	"""
 		Handle PUT requests to the resource
 		- If resource exists it update the payload
 		- Otherwise the modified internal implementation of CoAPthon creates a new resource
 	"""
-	def render_PUT_advanced(self, request, response):
-		print(request.uri_path)
+	def render_PUT_advanced(self, request, response, index = None):
+		
+		#create on publish	
+		if index is not None:
+			return self.createOnPublish(request, response, index)
+
 		sys.stdout.flush()           
 		# Forbid updating the base ps api resource         
 		if(request.uri_path == "ps"):
@@ -152,8 +188,6 @@ class PsResource(Resource):
 			response.payload = "Created"
 			return self,response
 		"""
-		if(response.code == defines.Codes.NOT_FOUND.number):
-			resource = self.createOnPublish(request)
 		response.payload = "Changed"
 		response.code = defines.Codes.CHANGED.number
 		return self, response
@@ -161,7 +195,8 @@ class PsResource(Resource):
 	"""
 		Handles resource DELETION as well as deletion
 		of possibly present children with a recursive deletion
-		at the end of the recursive deletion, it deletes the resource from the parent children
+		at the end of the recursive deletion, it deletes the resource from the parent children.
+		Returns True if all goes good so that coapthon can delete the subtree root resource.
 	"""
 	def render_DELETE_advanced(self, request, response):
 		if(request.uri_path == "ps"):
@@ -177,9 +212,5 @@ class PsResource(Resource):
 		if(self.parent):
 			self.parent.children.remove(self)
 		return True, response
-
-
-
-
 
 

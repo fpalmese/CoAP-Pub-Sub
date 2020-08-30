@@ -15,7 +15,7 @@ class Resource(object):
         :param coap_server: the server that own the resource
         :param visible: if the resource is visible
         :param observable: if the resource is observable
-        :param allow_children: if the resource could have children
+        :param allow_children: if the resource can have children
         """
         # The attributes of this resource.
         self._attributes = {}
