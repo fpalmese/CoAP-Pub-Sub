@@ -90,19 +90,7 @@ class RequestLayer(object):
         transaction.response = Response()
         transaction.response.destination = transaction.request.source
         transaction.response.token = transaction.request.token
-        try:
-            resource = self._server.root[path]
-        except KeyError:
-            resource = None
-        if resource is None:
-            transaction.response.code = defines.Codes.NOT_FOUND.number
-            #handle here the "create on publish"
-            transaction = self._server.resourceLayer.update_new_resource(transaction)
-        else:
-            transaction.resource = resource
-            # Update request
-            transaction = self._server.resourceLayer.update_resource(transaction)
-        return transaction
+        return self._server.resourceLayer.update_resource(transaction)
 
     def _handle_post(self, transaction):
         """
@@ -113,7 +101,7 @@ class RequestLayer(object):
         :rtype : Transaction
         :return: the edited transaction with the response to the request
         """
-        path = str("/" + transaction.request.uri_path)
+        path = str("/"+transaction.request.uri_path)
         transaction.response = Response()
         transaction.response.destination = transaction.request.source
         transaction.response.token = transaction.request.token

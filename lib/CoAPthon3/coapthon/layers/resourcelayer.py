@@ -28,6 +28,7 @@ class ResourceLayer(object):
         """
         resource_node = self._parent.root[path]
         transaction.resource = resource_node
+        print("\nResource: "+str(resource_node.name))
         # If-Match
         if transaction.request.if_match:
             if None not in transaction.request.if_match and str(transaction.resource.etag) \
@@ -116,13 +117,14 @@ class ResourceLayer(object):
 
         return transaction
 
-    def add_resource(self, transaction, parent_resource, lp):
+    def add_resource(self, transaction, parent_resource, lp, index):
         """
         Render a POST on a new resource.
 
         :param transaction: the transaction
         :param parent_resource: the parent of the resource
         :param lp: the location_path attribute of the resource
+        :param index: used to indicate the creation of multiple topics at once
         :return: the response
         """
         method = getattr(parent_resource, "render_POST", None)
@@ -131,7 +133,7 @@ class ResourceLayer(object):
         except NotImplementedError:
             try:
                 method = getattr(parent_resource, "render_POST_advanced", None)
-                ret = method(request=transaction.request, response=transaction.response)
+                ret = method(request=transaction.request, response=transaction.response, index=index)
                 if isinstance(ret, tuple) and len(ret) == 2 and isinstance(ret[1], Response) \
                         and isinstance(ret[0], Resource):
                     # Advanced handler
@@ -206,15 +208,15 @@ class ResourceLayer(object):
         self._parent.root[resource.path] = resource
 
         return transaction
-
+    """
     def create_resource(self, path, transaction):
-        """
+        
         Render a POST request.
 
         :param path: the path of the request
         :param transaction: the transaction
         :return: the response
-        """
+        
         t = self._parent.root.with_prefix(path)
         max_len = 0
         imax = None
@@ -234,6 +236,58 @@ class ResourceLayer(object):
             transaction.response.code = defines.Codes.FORBIDDEN.number
             transaction.response.payload = "Topic "+path+ "cannot have children."
             return transaction
+    """
+
+    def create_resource(self, path, transaction):
+        """
+        Render a POST request.
+
+        :param path: the path of the request
+        :param transaction: the transaction
+        :return: the response
+        """
+        try:
+            parent_resource = self._parent.root[path]
+        except KeyError:
+            parent_resource = None
+        index = None
+        prev_topic = ""
+        #parent doesn't exist: create several subtopics then create the last one
+        if(parent_resource is None):
+            topics = path.split("/")
+            #delete first element if empty
+            if(topics[0]==""):
+                del topics[0]
+            for i in range(0, len(topics)):
+                topic = ""
+                for t in topics[0:i + 1]:
+                    topic = topic + "/" + t
+                try:
+                    resource = self._parent.root[topic]
+                except:
+                    resource = None
+                if resource is not None:
+                    prev_topic = topic
+                    continue
+                else:
+                    parent_resource = self._parent.root[prev_topic]
+                    index = i
+                    break
+        lp = path
+        if parent_resource is None:
+            transaction.response.code = defines.Codes.METHOD_NOT_ALLOWED.number
+            return transaction
+
+        return self.add_resource(transaction, parent_resource, lp, index)
+        """
+        if parent_resource.allow_children:
+                return self.add_resource(transaction, parent_resource, lp, index)
+        else:
+            transaction.response.code = defines.Codes.FORBIDDEN.number
+            transaction.response.payload = "Topic "+path+ " cannot have children."
+            return transaction
+        """
+
 
     def update_resource(self, transaction):
         """
@@ -253,14 +307,50 @@ class ResourceLayer(object):
             transaction.response.code = defines.Codes.PRECONDITION_FAILED.number
             return transaction
 
-        method = getattr(transaction.resource, "render_PUT", None)
+        path = str("/" + transaction.request.uri_path)
+        index = None
+        try:
+            resource = self._parent.root[path]
+        except KeyError:
+            resource = None
 
+        if resource is None:
+            topics = path.split("/")
+            #remove first element if empty
+            if topics[0]=="":
+                del topics[0]
+            prev_topic = ""
+            parent_resource = None
+            for i in range(0, len(topics)):
+                topic = ""
+                for t in topics[0:i + 1]:
+                    topic = topic + "/" + t
+                try:
+                    resource = self._parent.root[topic]
+                except:
+                    resource = None
+
+                if resource is not None:
+                    prev_topic = topic
+                    continue
+                else:
+                    parent_resource = self._parent.root[prev_topic]
+                    index = i
+                    break
+
+            if parent_resource is None:
+                transaction.response.code = defines.Codes.METHOD_NOT_ALLOWED.number
+                return transaction
+            else:
+                resource = parent_resource
+        transaction.resource = resource
+        method = getattr(transaction.resource, "render_PUT", None)
         try:
             resource = method(request=transaction.request)
         except NotImplementedError:
             try:
                 method = getattr(transaction.resource, "render_PUT_advanced", None)
-                ret = method(request=transaction.request, response=transaction.response)
+                ret = method(request=transaction.request, response=transaction.response,index =index)
                 if isinstance(ret, tuple) and len(ret) == 2 and isinstance(ret[1], Response) \
                         and isinstance(ret[0], Resource):
                     # Advanced handler
@@ -312,124 +402,6 @@ class ResourceLayer(object):
             transaction.response.etag = resource.etag
 
         transaction.response.code = defines.Codes.CHANGED.number
-
-        transaction.response.payload = None
-
-        assert (isinstance(resource, Resource))
-        if resource.etag is not None:
-            transaction.response.etag = resource.etag
-        if resource.max_age is not None:
-            transaction.response.max_age = resource.max_age
-
-        resource.changed = True
-        resource.observe_count += 1
-        transaction.resource = resource
-
-        return transaction
-
-    def update_new_resource(self, transaction):
-        """
-        Render a PUT request on a not existing resource.
-
-        :param transaction: the transaction
-        :return: the response
-        """
-        # If-Match
-        if transaction.request.if_match:
-            if None not in transaction.request.if_match and str(transaction.resource.etag) \
-                    not in transaction.request.if_match:
-                transaction.response.code = defines.Codes.PRECONDITION_FAILED.number
-                return transaction
-        # If-None-Match
-        if transaction.request.if_none_match:
-            transaction.response.code = defines.Codes.PRECONDITION_FAILED.number
-            return transaction
-
-
-        path = transaction.request.uri_path
-        topics = path.split("/")
-        for i in range(0,len(topics)):
-            topic = ""
-            for t in topics[0:i+1]:
-                topic = topic+"/"+t
-            try:
-                resource = self._parent.root[topic]
-            except:
-                resource = None
-
-            if resource is not None:
-                prev_topic = topic
-                continue
-            else:
-                parent_resource = self._parent.root[prev_topic]
-                index = i
-                break
-
-
-        method = getattr(parent_resource, "render_PUT", None)
-
-        try:
-            resource = method(request=transaction.request)
-        except NotImplementedError:
-            try:
-                method = getattr(parent_resource, "render_PUT_advanced", None)
-                ret = method(request=transaction.request, response=transaction.response,index=index)
-                if isinstance(ret, tuple) and len(ret) == 2 and isinstance(ret[1], Response) \
-                        and isinstance(ret[0], Resource):
-                    # Advanced handler
-                    resource, response = ret
-                    resource.changed = True
-                    resource.observe_count += 1
-                    transaction.resource = resource
-                    transaction.response = response
-                    if transaction.resource is None:
-                        transaction.response.code = defines.Codes.FORBIDDEN.number
-                        return transaction
-                    if transaction.response.code is None:
-                        transaction.response.code = defines.Codes.CREATED.number
-                    return transaction
-                elif isinstance(ret, tuple) and len(ret) == 3 and isinstance(ret[1], Response) \
-                        and isinstance(ret[0], Resource):
-                    # Advanced handler separate
-                    resource, response, callback = ret
-                    ret = self._handle_separate_advanced(transaction, callback)
-                    if not isinstance(ret, tuple) or \
-                            not (isinstance(ret[0], Resource) and isinstance(ret[1], Response)):  # pragma: no cover
-                        transaction.response.code = defines.Codes.INTERNAL_SERVER_ERROR.number
-                        return transaction
-                    resource, response = ret
-                    resource.changed = True
-                    resource.observe_count += 1
-                    transaction.resource = resource
-                    transaction.response = response
-                    if transaction.response.code is None:
-                        transaction.response.code = defines.Codes.CREATED.number
-                    return transaction
-                else:
-                    raise NotImplementedError
-            except NotImplementedError:
-                if transaction.response.code == defines.Codes.FORBIDDEN.number:
-                    return transaction
-                transaction.response.code = defines.Codes.METHOD_NOT_ALLOWED.number
-                return transaction
-
-        if isinstance(resource, Resource):
-            pass
-        elif isinstance(resource, tuple) and len(resource) == 2:
-            resource, callback = resource
-            resource = self._handle_separate(transaction, callback)
-            if not isinstance(resource, Resource):  # pragma: no cover
-                transaction.response.code = defines.Codes.INTERNAL_SERVER_ERROR.number
-                return transaction
-        else:  # pragma: no cover
-            # Handle error
-            transaction.response.code = defines.Codes.INTERNAL_SERVER_ERROR.number
-            return transaction
-
-        if resource.etag is not None:
-            transaction.response.etag = resource.etag
-
-        transaction.response.code = defines.Codes.CREATED.number
 
         transaction.response.payload = None
 

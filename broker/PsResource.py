@@ -8,30 +8,47 @@ import sys
 	If base is true, the deletion will be performed by the calling
 	method, otherwise the deletion will be performed by the function
 """
-def delete_subtree(root_resource,base=False):
+def delete_subtree_old(root_resource,base=False):
 	if(len(root_resource.children) == 0):
+		print("SONO QUI:"+root_resource.name)
 		print("[BROKER] Deleting: "+root_resource.name)
 		root_resource.cs.remove_resource(root_resource.name)
 		return
 	for l in root_resource.children:
-		delete_subtree(l)
+		print("SONO QUI:"+l.name)
+		delete_subtree(l,False)
+		return
 		print("[BROKER] Removing from children: "+l.name)
-		root_resource.children.remove(l)
+		#root_resource.children.remove(l)
 		if(len(root_resource.children) == 0 and not base):
 			print("[BROKER] Deleting: "+root_resource.name)
 			root_resource.cs.remove_resource(root_resource.name)
-			break      
+			break
+
 	#notify all subscribers that the resource has been deleted			
-	root_resource.cs.notify(root_resource,True)
+	#root_resource.cs.notify(root_resource,True)
  
-	
+
+def delete_subtree(root_resource,toDelete=True):
+	for child in root_resource.children:
+		print("[Broker] Deleting subtree of: "+child.name)
+		#root_resource.children.remove(child)
+		delete_subtree(child)
+	#root_resource.parent.children.remove(root_resource)
+	if(toDelete):
+		print("[Broker] Deleting resource: "+root_resource.name)
+		root_resource.cs.remove_resource(root_resource.name)
+
+
+
+
 """
 	Base resource for the Publish/Subsribe topic.
 	Follows the Composite Design Pattern to maintain a recursive list 
 	of children.
 """
 class PsResource(Resource):
-	def __init__(self, name="PsResource",coap_server=None):
+	def __init__(self, name="ps/",coap_server=None):
 		super(PsResource, self).__init__(name, coap_server, visible=True,observable=True, allow_children=True)
 		self.cs = coap_server
 		self.resource_type = "core.ps" # draft stabdard
@@ -48,9 +65,13 @@ class PsResource(Resource):
 		sys.stdout.flush();           
 		response.payload = self.payload
 		response.code = defines.Codes.CONTENT.number
-		if(request.observe == 0): # Log observe biding
+		if(request.observe == 0): # Log observe binding
 			host, port = request.source
-			print("[BROKER] Binding observe to: "+host)
+			print("[BROKER] Binding observe for: "+host+" to "+self.name)
+			sys.stdout.flush()    
+		elif(request.observe == 1): # Log observe removing
+			host, port = request.source
+			print("[BROKER] Removing observe for: "+host+" to "+self.name)
 			sys.stdout.flush()    
 		return self, response
 
@@ -67,10 +88,12 @@ class PsResource(Resource):
 		topicData = payload.split(";")
 		topicPath = topicData[0]
 		path = topicPath.replace("<","").replace(">","")
+		exists = False
 		for res in self.children:
 			if(res.name == base+"/"+path):
 				#RESROUCE ALREADY EXISTS
-				return res
+				#return res
+				exists = True
 		# Create new Ps Resource with the new uri path
 		resource = PsResource(base+"/"+path,self.cs)
 		resource.allow_children = False
@@ -88,14 +111,23 @@ class PsResource(Resource):
 			attr[key] = val
 		resource.attributes = attr
 		sys.stdout.flush()    
-		return resource
+		return resource, exists
 
 	
 	"""
 		Handle POST request to create resource on this path
 	"""
-	def render_POST_advanced(self, request, response):
-		child_res = self.createResFromPayload(request.payload,"/"+request.uri_path)
+	def render_POST_advanced(self, request, response, index = None):
+		#create multiple topics
+		if index is not None:
+			parent_res,response = self.createSubtopics(request,response,index)
+			if parent_res is None:
+				return None, response
+			method = getattr(parent_res, "render_POST_advanced", None)
+			#call the render_POST of the new parent resource created
+			return method(request=request,response=response,index=None)
+
+		child_res,exists = self.createResFromPayload(request.payload,self.name)
 		# The request is not formatted according to RFC
 		if(child_res is None):
 			response.code = defines.Codes.BAD_REQUEST.number
@@ -104,11 +136,23 @@ class PsResource(Resource):
 		child_res.parent = self
 		
 		# The resource already exists at this topic
+		
+		if(exists):
+			old_res = self.cs.root[child_res.name]
+			if(len(old_res.children)>0 and not child_res.allow_children):
+				delete_subtree(old_res,False)
+			del self.cs.root[child_res.name]
+			self.cs.add_resource(child_res.name,child_res)
+			response.code = defines.Codes.CHANGED.number
+			response.payload = child_res.name + " Modified"
+			return self,response
 			
+		"""	
 		if(child_res in self.children):
 			response.code = defines.Codes.FORBIDDEN.number
 			response.payload = child_res.name + " Already Exists"
 			return self,response
+		"""
 		"""
 		if(self.containsChild(child_res.name)):
 			response.code = defines.Codes.FORBIDDEN.number
@@ -129,10 +173,9 @@ class PsResource(Resource):
 		print("[BROKER] Resource "+child_res.name+" created.");
 		sys.stdout.flush()            
 		return self,response
-
-
-
-	def createOnPublish(self,request,response,index):
+	
+	#used to implement POST or PUT to nonexisting topics: create the nonexisting subtopics and return the leaf topic
+	def createSubtopics(self,request,response,index, update=False):
 		path = request.uri_path
 		topics = path.split("/")
 		base = self.path
@@ -152,16 +195,20 @@ class PsResource(Resource):
 			old_res.children.append(new_res)
 			base = base+"/"+topics[i]
 			old_res = new_res
+		#this means it is a PUT request (create on publish)
+		if(update):
+			new_res.payload = request.payload
+			new_res.allow_children = False
+		else:
+			new_res.attributes["ct"] = ["40"]
+			new_res.allow_children = True
 
-		new_res.payload = request.payload
-		new_res.allow_children = False
 		self.cs.add_resource(new_res.name,new_res)
 		response.payload = "Created"
 		response.code = defines.Codes.CREATED.number
 		sys.stdout.flush()
+		#returns the last created resource
 		return new_res,response
-
-
 
 	"""
 		Handle PUT requests to the resource
@@ -172,7 +219,7 @@ class PsResource(Resource):
 		
 		#create on publish	
 		if index is not None:
-			return self.createOnPublish(request, response, index)
+			return self.createSubtopics(request, response, index, True)
 
 		sys.stdout.flush()           
 		# Forbid updating the base ps api resource         
@@ -208,9 +255,12 @@ class PsResource(Resource):
 		print("[BROKER] Deleting subtree of "+self.name)
 		sys.stdout.flush()    
 		if(len(self.children)>0):
-			delete_subtree(self,True)
+			delete_subtree(self,False)
 		if(self.parent):
-			self.parent.children.remove(self)
+			try:
+				self.parent.children.remove(self)
+			except:
+				pass
 		return True, response
 
 

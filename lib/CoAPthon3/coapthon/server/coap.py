@@ -286,7 +286,6 @@ class CoAP(object):
         :param path: the path for the unwanted resource
         :rtype : the removed object
         """
-
         path = path.strip("/")
         paths = path.split("/")
         actual_path = ""
@@ -299,6 +298,9 @@ class CoAP(object):
         except KeyError:
             res = None
         if res is not None:
+            # notify all subscribers that the resource has been deleted
+            self.notify(res,True)
+            self._remove_relations(res)
             del(self.root[actual_path])
         return res
 
@@ -388,6 +390,20 @@ class CoAP(object):
         if not transaction.request.acknowledged and transaction.request.type == defines.Types["CON"]:
             ack = self._messageLayer.send_empty(transaction, transaction.request, ack)
             self.send_datagram(ack)
+
+    def _remove_relations(self,resource):
+        """
+        Removes all the relations(subscribers) to a specific resource
+
+        :param resource: the resource involved in the relations to remove
+        """
+        for relation in list(self._observeLayer._relations):
+            try :
+                path = "/"+self._observeLayer._relations[relation].transaction.request.uri_path
+            except:
+                path = None
+            if path == resource.name:
+                del self._observeLayer._relations[relation]
 
     def notify(self, resource, delete = False):
         """
