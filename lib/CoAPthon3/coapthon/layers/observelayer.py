@@ -29,6 +29,7 @@ class ObserveLayer(object):
     """
     def __init__(self):
         self._relations = {}
+        self._readers = {}
 
     def send_request(self, request):
         """
@@ -85,6 +86,8 @@ class ObserveLayer(object):
         :rtype : Transaction
         :return: the modified transaction
         """
+        if transaction.request.code != defines.Codes.GET.number:
+            return transaction
         if transaction.request.observe == 0:
             # Observe request
             host, port = transaction.request.source
@@ -97,14 +100,7 @@ class ObserveLayer(object):
                 allowed = False
             self._relations[key_token] = ObserveItem(time.time(), non_counter, allowed, transaction)
         elif transaction.request.observe == 1:
-            host, port = transaction.request.source
-            key_token = hash(str(host) + str(port) + str(transaction.request.token))
-            logger.info("Remove Subscriber")
-            try:
-                del self._relations[key_token]
-            except KeyError:
-                pass
-
+            self.remove_subscriber(transaction.request)
         return transaction
 
     def receive_empty(self, empty, transaction):
@@ -119,13 +115,7 @@ class ObserveLayer(object):
         :return: the modified transaction
         """
         if empty.type == defines.Types["RST"]:
-            host, port = transaction.request.source
-            key_token = hash(str(host) + str(port) + str(transaction.request.token))
-            logger.info("Remove Subscriber")
-            try:
-                del self._relations[key_token]
-            except KeyError:
-                pass
+            self.remove_subscriber(empty)
             transaction.completed = True
         return transaction
 
@@ -182,6 +172,24 @@ class ObserveLayer(object):
                 ret.append(self._relations[key].transaction)
         return ret
 
+    def notifyRead(self,resource):
+        ret = []
+        readers = self._readers[resource.name]
+        for i in readers:
+            if readers[i].non_counter > defines.MAX_NON_NOTIFICATIONS \
+                    or readers[i].transaction.request.type == defines.Types["CON"]:
+                readers[i].transaction.response.type = defines.Types["CON"]
+                readers[i].non_counter = 0
+            elif readers[i].transaction.request.type == defines.Types["NON"]:
+                readers[i].non_counter += 1
+                readers[i].transaction.response.type = defines.Types["NON"]
+            readers[i].transaction.resource = resource
+            del readers[i].transaction.response.mid
+            del readers[i].transaction.response.token
+            ret.append(readers[i].transaction)
+        self._readers[resource.name] = {}
+        return ret
+
     def remove_subscriber(self, message):
         """
         Remove a subscriber based on token.
@@ -189,7 +197,7 @@ class ObserveLayer(object):
         :param message: the message
         """
         logger.debug("Remove Subcriber")
-        host, port = message.destination
+        host, port = message.source
         key_token = hash(str(host) + str(port) + str(message.token))
         try:
             self._relations[key_token].transaction.completed = True

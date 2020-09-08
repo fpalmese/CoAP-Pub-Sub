@@ -297,44 +297,24 @@ class Resource(object):
 
         :return: the CoRE Link Format ct attribute
         """
-        value = ""
+        value = "ct="
         lst = self._attributes.get("ct")
-        if lst is not None and len(lst) > 0:
-            value = "ct="
-            for v in lst:
-                value += str(v) + " "
-        if len(value) > 0:
-            value = value[:-1]
+        if lst is None:
+            value = ""
+        else:
+            value += "\"" + str(lst) + "\""
         return value
 
     @content_type.setter
-    def content_type(self, lst):
+    def content_type(self, ct):
         """
         Set the CoRE Link Format ct attribute of the resource.
 
         :param lst: the list of CoRE Link Format ct attribute of the resource
         """
-        value = []
-        if isinstance(lst, str):
-            ct = defines.Content_types[lst]
-            self.add_content_type(ct)
-        elif isinstance(lst, list):
-            for ct in lst:
-                self.add_content_type(ct)
-
-    def add_content_type(self, ct):
-        """
-        Add a CoRE Link Format ct attribute to the resource.
-
-        :param ct: the CoRE Link Format ct attribute
-        """
-        lst = self._attributes.get("ct")
-        if lst is None:
-            lst = []
-        if isinstance(ct, str):
-            ct = defines.Content_types[ct]
-        lst.append(ct)
-        self._attributes["ct"] = lst
+        if not isinstance(ct, str):
+            ct = str(ct)
+        self._attributes["ct"] = ct
 
     @property
     def resource_type(self):

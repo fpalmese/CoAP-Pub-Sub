@@ -4,7 +4,7 @@ import random
 import socket
 import struct
 import threading
-
+import time
 from coapthon import defines
 from coapthon.layers.blocklayer import BlockLayer
 from coapthon.layers.messagelayer import MessageLayer
@@ -67,6 +67,7 @@ class CoAP(object):
         self.multicast = multicast
         self._cb_ignore_listen_exception = cb_ignore_listen_exception
 
+        self._notification_type = "NON"
         addrinfo = socket.getaddrinfo(self.server_address[0], None)[0]
 
         if sock is not None:
@@ -117,9 +118,12 @@ class CoAP(object):
         Clean old transactions
 
         """
+
         while not self.stopped.isSet():
             self.stopped.wait(timeout=defines.EXCHANGE_LIFETIME)
+            #self.stopped.wait(timeout=5)
             self._messageLayer.purge()
+            self.resourceLayer.purge()
 
     def listen(self, timeout=10):
         """
@@ -280,6 +284,7 @@ class CoAP(object):
             if res is None:
                 resource.path = actual_path
                 self.root[actual_path] = resource
+                self._observeLayer._readers[resource.name]= {}
         return True
 
     def remove_resource(self, path):
@@ -407,6 +412,7 @@ class CoAP(object):
                 path = None
             if path == resource.name:
                 del self._observeLayer._relations[relation]
+        del self._observeLayer._readers[resource.name]
 
     def notify(self, resource, delete = False):
         """
@@ -415,19 +421,21 @@ class CoAP(object):
         :param resource: the resource
         """
         observers = self._observeLayer.notify(resource)
+        readers = self._observeLayer.notifyRead(resource)
         logger.debug("Notify")
-        for transaction in observers:
+        for transaction in observers+readers:
             with transaction:
                 transaction.response = None
                 transaction = self._requestLayer.receive_request(transaction)
                 transaction = self._observeLayer.send_response(transaction)
                 transaction = self._blockLayer.send_response(transaction)
                 transaction = self._messageLayer.send_response(transaction)
-                transaction.response.type = defines.Types["NON"]
+                transaction.response.type = defines.Types[self._notification_type]
+                transaction.response.location_path = resource.name
+                transaction.response.max_age = resource.max_age
                 if transaction.response is not None:
                     if delete:
                         transaction.response.code = defines.Codes.NOT_FOUND.number
-                        transaction.response.type = defines.Types["CON"]
                         transaction.response.payload = transaction.resource.name+ " has been deleted"
                     if transaction.response.type == defines.Types["CON"]:
                         self._start_retransmission(transaction, transaction.response)

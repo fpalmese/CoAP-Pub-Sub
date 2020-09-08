@@ -40,7 +40,7 @@ class subThread(threading.Thread):
     def __init__(self,client,request,callback, *args, **kwargs):
         super(subThread, self).__init__(*args, **kwargs)
         self.toStop = False
-        self.args = (request,callback)
+        self.args = (request,callback,type)
         self.client = client
         #self.daemon = True
 
@@ -58,6 +58,11 @@ class subThread(threading.Thread):
             else:
                 response = self.client.queue.get(block=True)
                 self.args[1](response)
+                if(self.args[0].observe is not 0):
+                    if(response.code!= defines.Codes.NO_CONTENT.number):
+                        self.stopit()
+                        del self.client.readThreads["/"+self.args[0].uri_path]
+
 
 
 class HelperClient(object):
@@ -79,7 +84,7 @@ class HelperClient(object):
         self.queue = Queue()
         self.observe_threads = {}
         self.subThreads = {}
-
+        self.readThreads = {}
     def _wait_response(self, message):
         """
         Private function to get responses from the server.
@@ -246,7 +251,6 @@ class HelperClient(object):
         request = self.mk_request(defines.Codes.POST, path)
         request.token = generate_random_token(2)
         request.payload = payload
-
         if no_response:
             request.add_no_response()
             request.type = defines.Types["NON"]
@@ -314,7 +318,10 @@ class HelperClient(object):
 
             #thread = subThread(request, callback, self._thread_body)
             thread = subThread(self,request, callback)
-            self.subThreads["/"+request.uri_path] = thread
+            if request.observe==0:
+                self.subThreads["/"+request.uri_path] = thread
+            else:
+                self.readThreads["/" + request.uri_path] = thread
             thread.start()
 
         else:

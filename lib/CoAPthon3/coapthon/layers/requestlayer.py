@@ -1,6 +1,7 @@
 from coapthon.messages.response import Response
+from coapthon.layers.observelayer import ObserveItem
 from coapthon import defines
-
+import time
 __author__ = 'Giacomo Tanganelli'
 
 
@@ -56,28 +57,39 @@ class RequestLayer(object):
         transaction.response = Response()
         transaction.response.destination = transaction.request.source
         transaction.response.token = transaction.request.token
-        if path== "/":
-            transaction.response.code = defines.Codes.FORBIDDEN.number
+        if path== "/" or path=="/ps":
+            transaction.response.code = defines.Codes.METHOD_NOT_ALLOWED.number
             return transaction
         elif path == defines.DISCOVERY_URL:
-            transaction = self._server.resourceLayer.discover(transaction)
+            return self._server.resourceLayer.discover(transaction)
         else:
             try:
                 resource = self._server.root[path]
             except KeyError:
-
                 resource = None
-            if resource is None or path == '/':
+            if resource is None:
                 # Not Found
                 transaction.response.code = defines.Codes.NOT_FOUND.number
                 transaction.response.payload = path+ " NOT FOUND"
-            else:
-                if transaction.request.observe == 1:
-                    transaction.response.code = defines.Codes.NO_CONTENT.number
-                    transaction.response.payload = "Unsubscribed Successfully"
-                    return transaction
-                transaction.resource = resource
-                transaction = self._server.resourceLayer.get_resource(transaction)
+                return transaction
+            transaction.resource = resource
+            if(transaction.request.uri_query is not None and transaction.request.uri_query!=""):
+                return self._server.resourceLayer.discover_subtopics(transaction)
+            transaction = self._server.resourceLayer.get_resource(transaction)
+            """
+                BLOCKING READ HERE
+            """
+            if transaction.response.payload is None or transaction.response.payload == "":
+                transaction.response.code = defines.Codes.NO_CONTENT.number
+                [host,port] = transaction.request.source
+                key = hash(str(host)+str(port))
+                if key in self._server._observeLayer._readers[resource.name]:
+                    allowed = True
+                else:
+                    allowed = False
+                self._server._observeLayer._readers[resource.name][key] = ObserveItem(time.time(), 0, allowed, transaction)
+                return transaction
+
         return transaction
 
     def _handle_put(self, transaction):

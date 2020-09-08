@@ -6,11 +6,11 @@ import sys
     Main server class for the Broker application
 """
 class CoAPBroker(CoAP):
-	def __init__(self, host, port):	
+	def __init__(self, host, port):
 		CoAP.__init__(self, (host, port))
 		# Add the first base API ps/ resource
 		root_res = PsResource("/ps",self)
-		root_res.attributes["ct"] = ["40"]
+		root_res.attributes["ct"] = "40"
 		self.add_resource('/ps', root_res)
 
 def main():

@@ -167,6 +167,8 @@ class ResourceLayer(object):
                 else:
                     raise NotImplementedError
             except NotImplementedError:
+                if transaction.response.code == defines.Codes.NOT_FOUND.number:
+                    return transaction
                 transaction.response.code = defines.Codes.METHOD_NOT_ALLOWED.number
                 return transaction
         if isinstance(resource, Resource):
@@ -391,6 +393,8 @@ class ResourceLayer(object):
                 else:
                     raise NotImplementedError
             except NotImplementedError:
+                if transaction.response.code == defines.Codes.BAD_REQUEST.number:
+                    return transaction
                 transaction.response.code = defines.Codes.METHOD_NOT_ALLOWED.number
                 return transaction
 
@@ -625,6 +629,24 @@ class ResourceLayer(object):
         transaction.response.content_type = defines.Content_types["application/link-format"]
         return transaction
 
+    def discover_subtopics(self,transaction):
+        root_res = self._parent.root["/"+transaction.request.uri_path]
+        query = transaction.request.uri_query
+        transaction.response.code = defines.Codes.CONTENT.number
+        transaction.response.payload = self.discover_subtree_payload(query,root_res)
+        transaction.response.content_type = defines.Content_types["application/link-format"]
+        return transaction
+
+    def discover_subtree_payload(self,uri_query,root_res):
+        payload = ""
+        for resource in root_res.children:
+            if resource.visible:
+                ret = self.valid(uri_query, resource.attributes)
+                if ret:
+                        payload += self.corelinkformat(resource)
+            payload += self.discover_subtree_payload(uri_query,resource)
+        return payload
+
     @staticmethod
     def valid(query, attributes):
         query = query.split("&")
@@ -664,3 +686,15 @@ class ResourceLayer(object):
                 if v is not None:
                     msg = msg[:-1] + ";" + k + "=" + v + ","
         return msg
+
+    def purge(self,resource=None):
+        if resource is None:
+            resource = self._parent.root["/ps"]
+        for child in resource.children:
+
+            if not child.check_age():
+                print(child.name+" MAX AGE EXPIRED")
+                child.deleteResource()
+                self._parent.remove_resource(child.name)
+            else:
+                self.purge(child)

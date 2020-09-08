@@ -18,11 +18,14 @@ class PSClient(HelperClient):
 		print("[CLIENT "+self.name+"] Starting client...")
 
 	#DISCOVERY with the DISCOVER method (a GET to ./well-known/core)
-	def discovery(self):
+	def discovery(self,path=None):
 		print("[CLIENT "+self.name+"]")
 		print("Sending DISCOVERY")
 		#response=self.get("/.well-known/core")	
-		response = self.discover()		
+		if path is None:
+			response = self.discover()
+		else:
+			response = self.get(path)	
 		topicList=self.parseDiscovery(response)
 		if response is not None:
 			print("[CLIENT "+self.name+"]")
@@ -32,15 +35,14 @@ class PSClient(HelperClient):
 		print("------------------------")
 
 	#CREATE method handled on POST			#MODIFY THE ARGS TO VARYING 
-	def create(self,path,topicName,topicCT=None,topicRT=None):
+	def create(self,path,topicName,topicCT=0,topicRT=None, **kwargs):
 		print("[CLIENT "+self.name+"]")
 		print("Sending CREATE for "+path+"/"+topicName)
-		payload ="<"+topicName+">;"
-		if topicCT is not None:
-			payload = payload + "ct="+str(topicCT)+";"
+		payload ="<"+topicName+">;ct="+str(topicCT)
 		if topicRT is not None:
-			payload = payload + "rt="+str(topicRT)+";"
-		response = self.post(path,payload)
+			payload = payload + ";rt="+str(topicRT)
+		
+		response = self.post(path,payload,**kwargs)
 		#print response.pretty_print()
 		if response is not None:
 			self.printResponse(response)
@@ -49,15 +51,11 @@ class PSClient(HelperClient):
 		print("------------------------")
 
 	#PUBLISH method handled on put (may be done on post too, depends on broker)
-	def publish(self,topic,payload,method="PUT"):
+	def publish(self,topic,payload,**kwargs):
 		print("[CLIENT "+self.name+"]")
 		print("Sending PUBLISH on "+topic+ ": "+payload)
-		
-		if(method.lower()=="post"):
-			response = self.post(topic, payload)
-			
-		elif(method.lower()=="put"):
-			response = self.put(topic, payload)
+
+		response = self.put(topic, payload,**kwargs)
 		#print(response.pretty_print())
 		self.printResponse(response)
 		print("------------------------")
@@ -76,6 +74,13 @@ class PSClient(HelperClient):
 
 		else:
 			return
+		print("------------------------")
+		return
+
+	def readCallback(self,message):
+		if message is not None:
+			print("[CLIENT "+self.name+"]")
+			print("Received message from past READ:\nCode: "+Codes.LIST[message.code].name+"\nPayload: "+str(message.payload))
 		print("------------------------")
 		return
 
@@ -100,12 +105,15 @@ class PSClient(HelperClient):
 		token = generate_subscribe_token(self.name+topic,tkn_size)
 		response = self.remove_observe(topic,token)
 	
-	def read(self,topic):
+	def read(self,topic,blocking=True):
 		print("[CLIENT "+self.name+"]")
 		print("Sending READ to "+topic)
 		if topic is not None:
-			response = self.get(topic)
-			self.printResponse(response)
+			if blocking:
+				response = self.get(topic,self.readCallback)
+			else:
+				response = self.get(topic)
+				self.printResponse(response)
 		print("---------------------")
 
 	def remove(self,topic):
@@ -140,7 +148,11 @@ class PSClient(HelperClient):
 			for t in list(self.subThreads):
 				self.subThreads[t].stopit()
 				del self.subThreads[t]
-		while(len(self.subThreads)>0):
+			for t in list(self.readThreads):
+				self.readThreads[t].stopit()
+				del self.readThreads[t]
+
+		while(len(self.subThreads)>0 or len(self.readThreads)>0):
 			pass
 		
 		print("[CLIENT "+self.name+"] Stopping client...")

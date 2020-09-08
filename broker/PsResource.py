@@ -1,7 +1,6 @@
 from coapthon.resources.resource import Resource
 from coapthon import defines
-import re
-import sys
+import re,sys,json,time
 """
 	Delete the entire subtree of a resource if it has children,
 	by recursive iteration of the subtree of root root_resource.
@@ -56,23 +55,34 @@ class PsResource(Resource):
 		self.payload = ""
 		self.children = []
 		self.parent = None
+		self.max_age = 0
 
 	"""
 		Handle get requests: observe requests are internally served
 		by CoAPthon itself. 
 	"""
 	def render_GET_advanced(self, request, response):
-		sys.stdout.flush();           
+		sys.stdout.flush()     
+		if not self.check_age():
+			response.code = defines.Codes.NOT_FOUND.number
+			self.deleteResource()
+			self.cs.remove_resource(self.name)
+			return None,response
 		response.payload = self.payload
 		response.code = defines.Codes.CONTENT.number
 		if(request.observe == 0): # Log observe binding
 			host, port = request.source
+			if response.payload is None or response.payload=="":
+				response.code = defines.Codes.NO_CONTENT.number
+				response.payload = "Subscribed."
 			print("[BROKER] Binding observe for: "+host+" to "+self.name)
 			sys.stdout.flush()    
 		elif(request.observe == 1): # Log observe removing
 			host, port = request.source
+			response.payload = "Unsubscribed."
+			response.code = defines.Codes.NO_CONTENT.number
 			print("[BROKER] Removing observe for: "+host+" to "+self.name)
-			sys.stdout.flush()    
+			sys.stdout.flush()
 		return self, response
 
 	"""
@@ -82,9 +92,10 @@ class PsResource(Resource):
 	"""
 	def createResFromPayload(self,payload,base):
 		#RegEx to check if the format of the request is RFC compliant (also according to CoAPthon defines)
-		if(payload is None or not re.match(r'^<(\w+)>;(?:(ct=\w+;)|(rt=\w+;)|(if=\w+;)|(sz=\w+;))+$',payload)):
-			return None
-		payload = payload[:-1]
+
+		if (payload is None or not re.match(r'^<(\w+)>((;rt=\w+)|(;if=\w+)|(;sz=\d+))*(;ct=\d+)((;rt=\w+)|(;if=\d+)|(;sz=\d+))*$',payload)):
+		#if(payload is None or not re.match(r'^<(\w+)>;(?:(ct=\w+;)|(rt=\w+;)|(if=\w+;)|(sz=\w+;))+$',payload)):
+			return None,False
 		topicData = payload.split(";")
 		topicPath = topicData[0]
 		path = topicPath.replace("<","").replace(">","")
@@ -97,7 +108,7 @@ class PsResource(Resource):
 		# Create new Ps Resource with the new uri path
 		resource = PsResource(base+"/"+path,self.cs)
 		resource.allow_children = False
-		topicData.pop(0);
+		topicData.pop(0)
 		attr = {}
 		attr["obs"] = ""
 		# Extract and build the attribute object for the new Resource
@@ -107,7 +118,7 @@ class PsResource(Resource):
 			if(key == 'ct'):
 				if(val == '40'):
 					resource.allow_children = True
-				val = [val]
+				#val = [val]
 			attr[key] = val
 		resource.attributes = attr
 		sys.stdout.flush()    
@@ -118,6 +129,7 @@ class PsResource(Resource):
 		Handle POST request to create resource on this path
 	"""
 	def render_POST_advanced(self, request, response, index = None):
+		
 		#create multiple topics
 		if index is not None:
 			parent_res,response = self.createSubtopics(request,response,index)
@@ -145,30 +157,24 @@ class PsResource(Resource):
 			self.cs.add_resource(child_res.name,child_res)
 			response.code = defines.Codes.CHANGED.number
 			response.payload = child_res.name + " Modified"
+			if request.max_age is not None:
+				child_res.max_age = time.time()+int(request.max_age)
 			return self,response
 			
-		"""	
-		if(child_res in self.children):
-			response.code = defines.Codes.FORBIDDEN.number
-			response.payload = child_res.name + " Already Exists"
-			return self,response
-		"""
-		"""
-		if(self.containsChild(child_res.name)):
-			response.code = defines.Codes.FORBIDDEN.number
-			response.payload = child_res.name + " Already Exists"
-			return self,response
-		"""
 		#check if the parent resource admits a child (ct=40)
 		if(not self.allow_children):
 			response.code = defines.Codes.FORBIDDEN.number
 			response.payload = self.name + " cannot have children"
 			return self, response
+		
+		if request.max_age is not None:
+			child_res.max_age = time.time()+int(request.max_age)
 
 		self.children.append(child_res)
 		self.cs.add_resource(child_res.name,child_res)
 
 		response.payload = "Created. Location: "+child_res.name 
+		response.location_path = child_res.name
 		response.code = defines.Codes.CREATED.number
 		print("[BROKER] Resource "+child_res.name+" created.");
 		sys.stdout.flush()            
@@ -180,6 +186,10 @@ class PsResource(Resource):
 		topics = path.split("/")
 		base = self.path
 		old_res = self
+		max_age = None
+		if request.max_age is not None:
+			max_age = time.time()+int(request.max_age)
+
 		if(not self.allow_children):
 			response.code = defines.Codes.FORBIDDEN.number
 			response.payload = self.name + " cannot have children"
@@ -187,9 +197,10 @@ class PsResource(Resource):
 
 		for i in range(index,len(topics)):
 			new_res = PsResource(base+"/"+topics[i],self.cs)
+			new_res.max_age = max_age
 			new_res.parent = old_res
 			if(i<len(topics)-1):
-				new_res.attributes["ct"] = ["40"]
+				new_res.attributes["ct"] = "40"
 				new_res.allow_children = True
 				self.cs.add_resource(new_res.name,new_res)
 			old_res.children.append(new_res)
@@ -200,10 +211,11 @@ class PsResource(Resource):
 			new_res.payload = request.payload
 			new_res.allow_children = False
 			response.payload = "Created. Location: "+new_res.name
+			response.location_path = self.name
 		else:
-			new_res.attributes["ct"] = ["40"]
+			new_res.attributes["ct"] = "40"
 			new_res.allow_children = True
-
+		new_res.max_age = max_age
 		self.cs.add_resource(new_res.name,new_res)
 		
 		response.code = defines.Codes.CREATED.number
@@ -221,21 +233,36 @@ class PsResource(Resource):
 		#create on publish	
 		if index is not None:
 			return self.createSubtopics(request, response, index, True)
-
-		sys.stdout.flush()           
+		sys.stdout.flush()
+		if not self.check_age():
+			self.payload = request.payload
+			self.allow_children = False
+			self.attributes["ct"] = "0"
+			delete_subtree(self,False)
+			if request.max_age is not None:
+				self.max_age = time.time()+int(request.max_age)
+			else:
+				self.max_age = 0
+			response.code = defines.Codes.CREATED.number
+			response.payload = "Created. Location: "+self.name
+			response.location_path = self.name
+			return self,response
 		# Forbid updating the base ps api resource         
 		if(request.uri_path == "ps"):
 			response.code = defines.Codes.FORBIDDEN.number
 			response.payload = "Forbidden"
 			return False, response        
+		if not self.checkContentFormat(request.payload):
+			response.code = defines.Codes.BAD_REQUEST.number
+			response.payload = "Unacceptable content format."
+			return False,response
 		self.payload = request.payload
+		
+		if request.max_age is not None:
+			self.max_age = time.time()+int(request.max_age)
+
 		print("[BROKER] "+self.name+" updated with content: "+request.payload)
-		sys.stdout.flush()            
-		# New resource has been created before passing control to this method
-		"""if(response.code == defines.Codes.CREATED.number): 
-			response.payload = "Created"
-			return self,response
-		"""
+		sys.stdout.flush()
 		response.payload = "Changed"
 		response.code = defines.Codes.CHANGED.number
 		return self, response
@@ -259,9 +286,49 @@ class PsResource(Resource):
 			delete_subtree(self,False)
 		if(self.parent):
 			try:
-				self.parent.children.remove(self)
+				self.parent.remove_children(self.name)
 			except:
 				pass
 		return True, response
+
+
+	"""
+		Check if the input is compatible with the resource
+		content format specified at the creation.
+		//Ct=0 allows any string
+		//Ct=50 allows only JSON
+		//Others don't accept anything
+
+
+	"""
+	def checkContentFormat(self,payload):
+		#this means it's a JSON
+		if re.match(r'^{\"\w+\"\:((\w+)|(\"\w+\"))(,\"\w+\"\:((\"\w+\")|(\w+)))*}$',payload):
+			if self.attributes["ct"]=="0":
+				return True
+			elif self.attributes["ct"]=="50":
+				return True
+		else:
+			if self.attributes["ct"]=="0": 
+				return True
+		return False
+
+	def remove_children(self,child_name):
+		for ch in self.children:
+			if ch.name == child_name:
+				self.children.remove(ch)
+	
+	def deleteResource(self):
+		if(self.parent):
+			try:
+				self.parent.remove_children(self.name)
+			except:
+				pass
+		if(len(self.children)>0):
+			delete_subtree(self,False)
+
+	def check_age(self):
+		return (self.max_age is None or self.max_age==0 or self.max_age > time.time())
+
 
 
