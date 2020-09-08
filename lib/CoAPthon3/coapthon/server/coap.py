@@ -217,14 +217,7 @@ class CoAP(object):
 
             self._requestLayer.receive_request(transaction)
 
-            if transaction.resource is not None and transaction.resource.changed:
-                if transaction.response.code == defines.Codes.CHANGED.number:
-                    self.notify(transaction.resource)
-                    transaction.resource.changed = False
-            elif transaction.resource is not None and transaction.resource.deleted:
-                if transaction.response.code == defines.Codes.DELETED.number:
-                    self.notify(transaction.resource, True)
-                    transaction.resource.deleted = False
+
 
             self._observeLayer.send_response(transaction)
 
@@ -238,6 +231,16 @@ class CoAP(object):
                 if transaction.response.type == defines.Types["CON"]:
                     self._start_retransmission(transaction, transaction.response)
                 self.send_datagram(transaction.response)
+                
+            if transaction.resource is not None and transaction.resource.changed:
+                if transaction.response.code == defines.Codes.CHANGED.number:
+                    self.notify(transaction.resource)
+                    transaction.resource.changed = False
+
+            elif transaction.resource is not None and transaction.resource.deleted:
+                if transaction.response.code == defines.Codes.DELETED.number:
+                    self.notify(transaction.resource, True)
+                    transaction.resource.deleted = False
 
     def send_datagram(self, message):
         """
@@ -420,10 +423,12 @@ class CoAP(object):
                 transaction = self._observeLayer.send_response(transaction)
                 transaction = self._blockLayer.send_response(transaction)
                 transaction = self._messageLayer.send_response(transaction)
+                transaction.response.type = defines.Types["NON"]
                 if transaction.response is not None:
+                    if delete:
+                        transaction.response.code = defines.Codes.NOT_FOUND.number
+                        transaction.response.type = defines.Types["CON"]
+                        transaction.response.payload = transaction.resource.name+ " has been deleted"
                     if transaction.response.type == defines.Types["CON"]:
                         self._start_retransmission(transaction, transaction.response)
-                    if delete:
-                        transaction.response.code = defines.Codes.DELETED.number
-                        transaction.response.payload = transaction.resource.name+ " has been deleted"
                     self.send_datagram(transaction.response)

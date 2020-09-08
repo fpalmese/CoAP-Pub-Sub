@@ -168,7 +168,7 @@ class PsResource(Resource):
 		self.children.append(child_res)
 		self.cs.add_resource(child_res.name,child_res)
 
-		response.payload = child_res.name + " Created"
+		response.payload = "Created. Location: "+child_res.name 
 		response.code = defines.Codes.CREATED.number
 		print("[BROKER] Resource "+child_res.name+" created.");
 		sys.stdout.flush()            
@@ -199,12 +199,13 @@ class PsResource(Resource):
 		if(update):
 			new_res.payload = request.payload
 			new_res.allow_children = False
+			response.payload = "Created. Location: "+new_res.name
 		else:
 			new_res.attributes["ct"] = ["40"]
 			new_res.allow_children = True
 
 		self.cs.add_resource(new_res.name,new_res)
-		response.payload = "Created"
+		
 		response.code = defines.Codes.CREATED.number
 		sys.stdout.flush()
 		#returns the last created resource

@@ -119,7 +119,7 @@ class ResourceLayer(object):
 
     def add_resource(self, transaction, parent_resource, lp, index):
         """
-        Render a POST on a new resource.
+        Render a POST on a (new or existing) resource.
 
         :param transaction: the transaction
         :param parent_resource: the parent of the resource
@@ -256,8 +256,10 @@ class ResourceLayer(object):
         if(parent_resource is None):
             topics = path.split("/")
             #delete first element if empty
+
             if(topics[0]==""):
                 del topics[0]
+
             for i in range(0, len(topics)):
                 topic = ""
                 for t in topics[0:i + 1]:
@@ -270,9 +272,12 @@ class ResourceLayer(object):
                     prev_topic = topic
                     continue
                 else:
-                    parent_resource = self._parent.root[prev_topic]
-                    index = i
-                    break
+                    try:
+                        parent_resource = self._parent.root[prev_topic]
+                        index = i
+                        break
+                    except:
+                        parent_resource = None
         lp = path
         if parent_resource is None:
             transaction.response.code = defines.Codes.METHOD_NOT_ALLOWED.number
@@ -319,6 +324,7 @@ class ResourceLayer(object):
             #remove first element if empty
             if topics[0]=="":
                 del topics[0]
+
             prev_topic = ""
             parent_resource = None
             for i in range(0, len(topics)):
@@ -334,9 +340,12 @@ class ResourceLayer(object):
                     prev_topic = topic
                     continue
                 else:
-                    parent_resource = self._parent.root[prev_topic]
-                    index = i
-                    break
+                    try:
+                        parent_resource = self._parent.root[prev_topic]
+                        index = i
+                        break
+                    except:
+                        parent_resource = None
 
             if parent_resource is None:
                 transaction.response.code = defines.Codes.METHOD_NOT_ALLOWED.number

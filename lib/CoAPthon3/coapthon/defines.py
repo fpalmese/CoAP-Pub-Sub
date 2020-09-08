@@ -205,6 +205,7 @@ class Codes(object):
     VALID = CodeItem(67, 'VALID')
     CHANGED = CodeItem(68, 'CHANGED')
     CONTENT = CodeItem(69, 'CONTENT')
+    NO_CONTENT = CodeItem(70, 'NO_CONTENT')
     CONTINUE = CodeItem(95, 'CONTINUE')
 
     BAD_REQUEST = CodeItem(128, 'BAD_REQUEST')
@@ -236,6 +237,7 @@ class Codes(object):
         67: VALID,
         68: CHANGED,
         69: CONTENT,
+        70: NO_CONTENT,
         95: CONTINUE,
 
         128: BAD_REQUEST,

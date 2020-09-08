@@ -56,7 +56,10 @@ class RequestLayer(object):
         transaction.response = Response()
         transaction.response.destination = transaction.request.source
         transaction.response.token = transaction.request.token
-        if path == defines.DISCOVERY_URL:
+        if path== "/":
+            transaction.response.code = defines.Codes.FORBIDDEN.number
+            return transaction
+        elif path == defines.DISCOVERY_URL:
             transaction = self._server.resourceLayer.discover(transaction)
         else:
             try:
@@ -70,7 +73,7 @@ class RequestLayer(object):
                 transaction.response.payload = path+ " NOT FOUND"
             else:
                 if transaction.request.observe == 1:
-                    transaction.response.code = defines.Codes.CHANGED.number
+                    transaction.response.code = defines.Codes.NO_CONTENT.number
                     transaction.response.payload = "Unsubscribed Successfully"
                     return transaction
                 transaction.resource = resource
@@ -90,6 +93,9 @@ class RequestLayer(object):
         transaction.response = Response()
         transaction.response.destination = transaction.request.source
         transaction.response.token = transaction.request.token
+        if path== "/":
+            transaction.response.code = defines.Codes.FORBIDDEN.number
+            return transaction
         return self._server.resourceLayer.update_resource(transaction)
 
     def _handle_post(self, transaction):
@@ -105,7 +111,9 @@ class RequestLayer(object):
         transaction.response = Response()
         transaction.response.destination = transaction.request.source
         transaction.response.token = transaction.request.token
-
+        if path== "/":
+            transaction.response.code = defines.Codes.FORBIDDEN.number
+            return transaction
         # Create request
         transaction = self._server.resourceLayer.create_resource(path, transaction)
         return transaction
@@ -123,6 +131,9 @@ class RequestLayer(object):
         transaction.response = Response()
         transaction.response.destination = transaction.request.source
         transaction.response.token = transaction.request.token
+        if path== "/":
+            transaction.response.code = defines.Codes.FORBIDDEN.number
+            return transaction
         try:
             resource = self._server.root[path]
         except KeyError:
