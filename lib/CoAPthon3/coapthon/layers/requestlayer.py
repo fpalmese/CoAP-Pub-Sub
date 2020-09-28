@@ -57,7 +57,7 @@ class RequestLayer(object):
         transaction.response = Response()
         transaction.response.destination = transaction.request.source
         transaction.response.token = transaction.request.token
-        if path== "/" or path=="/ps":
+        if path== "/":
             transaction.response.code = defines.Codes.METHOD_NOT_ALLOWED.number
             return transaction
         elif path == defines.DISCOVERY_URL:
@@ -73,22 +73,26 @@ class RequestLayer(object):
                 transaction.response.payload = path+ " NOT FOUND"
                 return transaction
             transaction.resource = resource
+            #perform a discovery with path and query specified in the uri
             if(transaction.request.uri_query is not None and transaction.request.uri_query!=""):
                 return self._server.resourceLayer.discover_subtopics(transaction)
             transaction = self._server.resourceLayer.get_resource(transaction)
+
             """
                 BLOCKING READ HERE
             """
-            if transaction.response.payload is None or transaction.response.payload == "":
-                transaction.response.code = defines.Codes.NO_CONTENT.number
-                [host,port] = transaction.request.source
-                key = hash(str(host)+str(port))
-                if key in self._server._observeLayer._readers[resource.name]:
-                    allowed = True
-                else:
-                    allowed = False
-                self._server._observeLayer._readers[resource.name][key] = ObserveItem(time.time(), 0, allowed, transaction)
-                return transaction
+
+            if self._server._blocking_read:
+                if (transaction.response.payload is None or transaction.response.payload == "") and transaction.response.code == defines.Codes.CONTENT.number:
+                    transaction.response.code = defines.Codes.NO_CONTENT.number
+                    [host,port] = transaction.request.source
+                    key = hash(str(host)+str(port))
+                    if key in self._server._observeLayer._readers[resource.path]:
+                        allowed = True
+                    else:
+                        allowed = False
+                    self._server._observeLayer._readers[resource.path][key] = ObserveItem(time.time(), 0, allowed, transaction)
+                    return transaction
 
         return transaction
 

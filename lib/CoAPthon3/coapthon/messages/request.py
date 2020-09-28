@@ -281,21 +281,21 @@ class Request(Message):
                 return option.value
         return None
 
-    @proxy_schema.setter
+    @max_age.setter
     def max_age(self, value):
         """
-        Set the Proxy-Schema option of a request.
+        Set the Max-Age option of a request.
 
         :param value: the Proxy-Schema value
         """
         option = Option()
         option.number = defines.OptionRegistry.MAX_AGE.number
-        option.value = str(value)
+        option.value = int(value)
         self.add_option(option)
 
-    @proxy_schema.deleter
+    @max_age.deleter
     def max_age(self):
         """
-        Delete the Proxy-Schema option of a request.
+        Delete the Max-Age option of a request.
         """
         self.del_option_by_number(defines.OptionRegistry.MAX_AGE.number)

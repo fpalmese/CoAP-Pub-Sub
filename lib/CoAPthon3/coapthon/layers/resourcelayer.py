@@ -28,7 +28,7 @@ class ResourceLayer(object):
         """
         resource_node = self._parent.root[path]
         transaction.resource = resource_node
-        print("\nResource: "+str(resource_node.name))
+        print("\nResource: "+str(resource_node.path))
         # If-Match
         if transaction.request.if_match:
             if None not in transaction.request.if_match and str(transaction.resource.etag) \
@@ -691,10 +691,9 @@ class ResourceLayer(object):
         if resource is None:
             resource = self._parent.root["/ps"]
         for child in resource.children:
-
             if not child.check_age():
-                print(child.name+" MAX AGE EXPIRED")
-                child.deleteResource()
-                self._parent.remove_resource(child.name)
+                print(child.path+" MAX AGE EXPIRED")
+                child.delete_resource()
+                self._parent.remove_resource(child.path)
             else:
                 self.purge(child)

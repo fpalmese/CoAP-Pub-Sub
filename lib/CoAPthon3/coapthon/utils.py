@@ -1,7 +1,5 @@
 import random
 import string
-import threading
-import time
 
 __author__ = 'Giacomo Tanganelli'
 
@@ -150,7 +148,6 @@ class Tree(object):
     def __init__(self):
         self.tree = {}
 
-
     def dump(self):
         """
         Get all the paths registered in the server.
@@ -187,4 +184,3 @@ class Tree(object):
 
     def __delitem__(self, key):
         del self.tree[key]
-

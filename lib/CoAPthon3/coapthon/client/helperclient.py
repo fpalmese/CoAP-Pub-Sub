@@ -40,7 +40,7 @@ class subThread(threading.Thread):
     def __init__(self,client,request,callback, *args, **kwargs):
         super(subThread, self).__init__(*args, **kwargs)
         self.toStop = False
-        self.args = (request,callback,type)
+        self.args = (request,callback)
         self.client = client
         #self.daemon = True
 
@@ -173,20 +173,17 @@ class HelperClient(object):
 
         return self.send_request(request, callback, timeout)
 
-    def observe(self, path, callback, token = generate_random_token(4), timeout=None, **kwargs):  # pragma: no cover
+    def observe(self, path, callback, timeout=None, **kwargs):  # pragma: no cover
         """
         Perform a GET with observe = 0 on a certain path.
 
         :param path: the path
         :param callback: the callback function to invoke upon notifications
-        :param token: the token to be used in the request
         :param timeout: the timeout of the request
         :return: the response to the observe request
         """
         request = self.mk_request(defines.Codes.GET, path)
-
-        #line added by Fabio Palmese. Necessary to handle multiple subscribes from same client to same broker.
-        request.token = token
+        request.token = generate_random_token(2)
         request.observe = 0
 
         for k, v in kwargs.items():
@@ -197,18 +194,16 @@ class HelperClient(object):
 
 
 #function added by Fabio Palmese. Necessary to send the unsubscribe.
-    def remove_observe(self, path, token=None,timeout=None,**kwargs):  # pragma: no cover
+    def remove_observe(self, path,timeout=None,**kwargs):  # pragma: no cover
         """
         Perform a GET with observe = 1 on a certain path.
 
         :param path: the path
-        :param token: the token to be used in the request
         :param timeout: the timeout of the request
         :return: the response to the observe request
         """
         request = self.mk_request(defines.Codes.GET, path)
-        if token is not None:
-            request.token = token
+        token = generate_random_token(2)
         request.observe = 1
 
         for k, v in kwargs.items():

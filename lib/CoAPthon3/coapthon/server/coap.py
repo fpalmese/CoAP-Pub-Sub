@@ -66,9 +66,11 @@ class CoAP(object):
         self.server_address = server_address
         self.multicast = multicast
         self._cb_ignore_listen_exception = cb_ignore_listen_exception
-
-        self._notification_type = "NON"
         addrinfo = socket.getaddrinfo(self.server_address[0], None)[0]
+
+        #attributes used for pub-sub
+        self._QoS = 0
+        self._blocking_read = True
 
         if sock is not None:
 
@@ -115,7 +117,7 @@ class CoAP(object):
 
     def purge(self):
         """
-        Clean old transactions
+        Clean old transactions and old resources (max-age expired)
 
         """
 
@@ -221,8 +223,6 @@ class CoAP(object):
 
             self._requestLayer.receive_request(transaction)
 
-
-
             self._observeLayer.send_response(transaction)
 
             self._blockLayer.send_response(transaction)
@@ -284,7 +284,8 @@ class CoAP(object):
             if res is None:
                 resource.path = actual_path
                 self.root[actual_path] = resource
-                self._observeLayer._readers[resource.name]= {}
+                self._observeLayer._readers[resource.path]= {}
+                self._observeLayer._relations[resource.path] = {}
         return True
 
     def remove_resource(self, path):
@@ -308,7 +309,7 @@ class CoAP(object):
         if res is not None:
             # notify all subscribers that the resource has been deleted
             self.notify(res,True)
-            self._remove_relations(res)
+            self._observeLayer._remove_relations(res)
             del(self.root[actual_path])
         return res
 
@@ -399,21 +400,6 @@ class CoAP(object):
             ack = self._messageLayer.send_empty(transaction, transaction.request, ack)
             self.send_datagram(ack)
 
-    def _remove_relations(self,resource):
-        """
-        Removes all the relations(subscribers) to a specific resource
-
-        :param resource: the resource involved in the relations to remove
-        """
-        for relation in list(self._observeLayer._relations):
-            try :
-                path = "/"+self._observeLayer._relations[relation].transaction.request.uri_path
-            except:
-                path = None
-            if path == resource.name:
-                del self._observeLayer._relations[relation]
-        del self._observeLayer._readers[resource.name]
-
     def notify(self, resource, delete = False):
         """
         Notifies the observers of a certain resource.
@@ -421,7 +407,7 @@ class CoAP(object):
         :param resource: the resource
         """
         observers = self._observeLayer.notify(resource)
-        readers = self._observeLayer.notifyRead(resource)
+        readers = self._observeLayer.notify_read(resource)
         logger.debug("Notify")
         for transaction in observers+readers:
             with transaction:
@@ -430,13 +416,14 @@ class CoAP(object):
                 transaction = self._observeLayer.send_response(transaction)
                 transaction = self._blockLayer.send_response(transaction)
                 transaction = self._messageLayer.send_response(transaction)
-                transaction.response.type = defines.Types[self._notification_type]
-                transaction.response.location_path = resource.name
-                transaction.response.max_age = resource.max_age
                 if transaction.response is not None:
+                    notify_type = "NON" if self._QoS == 0 else "CON"
+                    transaction.response.type = defines.Types[notify_type]
+                    transaction.response.location_path = resource.path
+                    transaction.response.max_age = resource.max_age
                     if delete:
                         transaction.response.code = defines.Codes.NOT_FOUND.number
-                        transaction.response.payload = transaction.resource.name+ " has been deleted"
+                        transaction.response.payload = transaction.resource.path+ " has been deleted"
                     if transaction.response.type == defines.Types["CON"]:
                         self._start_retransmission(transaction, transaction.response)
                     self.send_datagram(transaction.response)

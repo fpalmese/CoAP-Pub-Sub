@@ -10,8 +10,11 @@ class CoAPBroker(CoAP):
 		CoAP.__init__(self, (host, port))
 		# Add the first base API ps/ resource
 		root_res = PsResource("/ps",self)
-		root_res.attributes["ct"] = "40"
+		root_res.attributes["ct"] = 40
+		root_res.allow_children=True
 		self.add_resource('/ps', root_res)
+		#line to have the "/ps/topic" always ready
+		self.add_resource('/ps/topic',PsResource("/ps/topic",self))
 
 def main():
 	print("[BROKER] Starting Broker")
@@ -20,9 +23,10 @@ def main():
 	try:
 		server.listen(10)
 	except KeyboardInterrupt:
-		print ("Server Shutdown")
+		print ("[BROKER] Broker Shutdown")
 		server.close()
 		print ("Exiting...")
 
 if __name__ == '__main__':
 	main()
+	

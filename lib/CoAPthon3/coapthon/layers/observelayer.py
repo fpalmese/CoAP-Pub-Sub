@@ -88,8 +88,12 @@ class ObserveLayer(object):
         """
         if transaction.request.code != defines.Codes.GET.number:
             return transaction
+        path = "/" + transaction.request.uri_path
+        if path not in self._relations:
+            return transaction
         if transaction.request.observe == 0:
             # Observe request
+            """
             host, port = transaction.request.source
             key_token = hash(str(host) + str(port) + str(transaction.request.token))
             non_counter = 0
@@ -98,14 +102,23 @@ class ObserveLayer(object):
                 allowed = True
             else:
                 allowed = False
-            self._relations[key_token] = ObserveItem(time.time(), non_counter, allowed, transaction)
+            """
+            host, port = transaction.request.source
+            key = hash(str(host) + str(port))
+            non_counter = 0
+
+            if key in self._relations[path]:
+                allowed = True
+            else:
+                allowed = False
+            self._relations[path][key] = ObserveItem(time.time(), non_counter, allowed, transaction)
         elif transaction.request.observe == 1:
             self.remove_subscriber(transaction.request)
         return transaction
 
     def receive_empty(self, empty, transaction):
         """
-        Manage the observe feature to remove a client in case of a RST message receveide in reply to a notification.
+        Manage the observe feature to remove a client in case of a RST message receveid in reply to a notification.
 
         :type empty: Message
         :param empty: the received message
@@ -119,7 +132,7 @@ class ObserveLayer(object):
             transaction.completed = True
         return transaction
 
-    def send_response(self, transaction):
+    def send_response_old(self, transaction):
         """
         Finalize to add the client to the list of observer.
 
@@ -143,7 +156,31 @@ class ObserveLayer(object):
                 del self._relations[key_token]
         return transaction
 
-    def notify(self, resource, root=None):
+    def send_response(self, transaction):
+        """
+        Finalize to add the client to the list of observer.
+
+        :type transaction: Transaction
+        :param transaction: the transaction that owns the response
+        :return: the transaction unmodified
+        """
+        host, port = transaction.request.source
+        path = "/" + transaction.request.uri_path
+        key = hash(str(host) + str(port))
+        if key in self._relations[path]:
+            if transaction.response.code == defines.Codes.CONTENT.number:
+                if transaction.resource is not None and transaction.resource.observable:
+                    transaction.response.observe = transaction.resource.observe_count
+                    self._relations[path][key].allowed = True
+                    self._relations[path][key].transaction = transaction
+                    self._relations[path][key].timestamp = time.time()
+                else:
+                    del self._relations[path][key]
+            elif transaction.response.code >= defines.Codes.ERROR_LOWER_BOUND:
+                del self._relations[path][key]
+        return transaction
+
+    def notify_old(self, resource, root=None):
         """
         Prepare notification for the resource to all interested observers.
 
@@ -172,9 +209,45 @@ class ObserveLayer(object):
                 ret.append(self._relations[key].transaction)
         return ret
 
-    def notifyRead(self,resource):
+    def notify(self, resource, root=None):
+        """
+        Prepare notification for the resource to all interested observers.
+
+        :rtype: list
+        :param resource: the resource for which send a new notification
+        :param root: deprecated
+        :return: the list of transactions to be notified
+        """
         ret = []
-        readers = self._readers[resource.name]
+        path = resource.path
+        if root is not None:
+            resource_list = root.with_prefix_resource(path)
+        else:
+            resource_list = [resource]
+        try:
+            relations=self._relations[path]
+        except KeyError:
+            relations = {}
+        for key in list(relations):
+            if self._relations[path][key].non_counter > defines.MAX_NON_NOTIFICATIONS \
+                    or self._relations[path][key].transaction.request.type == defines.Types["CON"]:
+                self._relations[path][key].transaction.response.type = defines.Types["CON"]
+                self._relations[path][key].non_counter = 0
+            elif self._relations[path][key].transaction.request.type == defines.Types["NON"]:
+                self._relations[path][key].non_counter += 1
+                self._relations[path][key].transaction.response.type = defines.Types["NON"]
+            self._relations[path][key].transaction.resource = resource
+            del self._relations[path][key].transaction.response.mid
+            del self._relations[path][key].transaction.response.token
+            ret.append(self._relations[path][key].transaction)
+        return ret
+
+    def notify_read(self,resource):
+        ret = []
+        try:
+            readers = self._readers[resource.path]
+        except:
+            return ret
         for i in readers:
             if readers[i].non_counter > defines.MAX_NON_NOTIFICATIONS \
                     or readers[i].transaction.request.type == defines.Types["CON"]:
@@ -187,10 +260,10 @@ class ObserveLayer(object):
             del readers[i].transaction.response.mid
             del readers[i].transaction.response.token
             ret.append(readers[i].transaction)
-        self._readers[resource.name] = {}
+        self._readers[resource.path] = {}
         return ret
 
-    def remove_subscriber(self, message):
+    def remove_subscriber_old(self, message):
         """
         Remove a subscriber based on token.
 
@@ -205,3 +278,54 @@ class ObserveLayer(object):
         except KeyError:
             logger.warning("No Subscriber")
 
+    def remove_subscriber(self, message):
+        """
+        Remove a subscriber based on token.
+
+        :param message: the message
+        """
+        logger.debug("Remove Subcriber")
+        host, port = message.source
+        key = hash(str(host) + str(port))
+        try:
+            path = "/"+message.uri_path
+        except:
+            self._remove_rst_relation(message)
+            return
+        try:
+            self._relations[path][key].transaction.completed = True
+            del self._relations[path][key]
+        except KeyError:
+            logger.warning("No Subscriber")
+
+    def _remove_relations_old(self, resource):
+        """
+        Removes all the relations(subscribers and readers) to a specific resource
+
+        :param resource: the resource involved in the relations to remove
+        """
+        for relation in list(self._relations):
+            try:
+                path = "/" + self._relations[relation].transaction.request.uri_path
+            except:
+                path = None
+            if path == resource.path:
+                del self._relations[relation]
+        del self._readers[resource.path]
+
+    def _remove_relations(self, resource):
+        """
+        Removes all the relations(subscribers and readers) to a specific resource
+
+        :param resource: the resource involved in the relations to remove
+        """
+        del self._relations[resource.path]
+        del self._readers[resource.path]
+
+    def _remove_rst_relation(self, empty):
+        [host,port] = empty.source
+        key_client = hash(str(host)+str(port))
+        for topic in self._relations:
+            if key_client in self._relations[topic]:
+                if self._relations[topic][key_client].transaction.request.token == empty.token:
+                    del self._relations[topic][key_client]

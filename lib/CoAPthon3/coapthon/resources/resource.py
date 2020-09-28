@@ -46,7 +46,7 @@ class Resource(object):
 
         self._location_query = []
 
-        self._max_age = None
+        self._max_age = 0
 
         self._coap_server = coap_server
 
@@ -501,6 +501,11 @@ class Resource(object):
         """
         raise NotImplementedError
 
+    def delete_resource(self):
+        """
+        Method to be redefined to delete a resource.
 
+        :return: a boolean
+        """
 
-
+        raise NotImplementedError
