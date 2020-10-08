@@ -53,13 +53,13 @@ class PsResource(Resource):
 		super(PsResource, self).__init__(name, coap_server, visible=True,observable=True, allow_children=False)
 		self.cs = coap_server
 		self.resource_type = "core.ps" # draft stabdard
-		self.content_type = "text/plain"
+		self.content_type = defines.Content_types["text/plain"]
 		self.payload = ""
 		self.children = []
 		self.parent = None
 		self.max_age = 0
 		self.path = name
-		self.attributes["ct"]=0
+		#self.attributes["ct"]=0
 	"""
 		Handle get requests: observe requests are internally served
 		by CoAPthon itself. 
@@ -78,6 +78,7 @@ class PsResource(Resource):
 			return None,response
 			
 		response.payload = self.payload
+		response.max_age = self.max_age
 		response.code = defines.Codes.CONTENT.number
 		if(request.observe == 0): # Log observe binding
 			host, port = request.source
@@ -124,9 +125,16 @@ class PsResource(Resource):
 			key,val = d.split("=")[0],d.split("=")[1]
 			print("[BROKER] Attr: "+key+" Val:"+val)
 			if(key == 'ct'):
-				if(int(val) == 40):
-					resource.allow_children = True
-				#val = [val]
+				#ct specified more than once
+				if hasattr(attr,key):
+					return None,False
+				else:	
+					#invalid content format
+					if int(val) not in [0,40,41,42,47,50,60]:
+						return None,False
+					elif(int(val) == 40):
+						resource.allow_children = True
+					#val = [val]
 			attr[key] = int(val)
 		resource.attributes = attr
 		sys.stdout.flush()    
@@ -210,7 +218,8 @@ class PsResource(Resource):
 			new_res.max_age = max_age
 			new_res.parent = old_res
 			if(i<len(topics)-1):
-				new_res.attributes["ct"] = 40
+				#new_res.attributes["ct"] = 40
+				new_res.content_type = defines.Content_types["application/link-format"]
 				new_res.allow_children = True
 				self.cs.add_resource(new_res.path,new_res)
 			old_res.children.append(new_res)
@@ -221,9 +230,9 @@ class PsResource(Resource):
 			new_res.payload = request.payload
 			response.payload = "Created. Location: "+new_res.path
 			response.location_path = new_res.path
-			new_res.attributes["ct"]= 0
+			new_res.content_type = defines.Content_types["text/plain"]
 		else:
-			new_res.attributes["ct"] = 40
+			new_res.content_type = defines.Content_types["application/link-format"]
 			new_res.allow_children = True
 		new_res.max_age = max_age
 		self.cs.add_resource(new_res.path,new_res)
@@ -247,7 +256,8 @@ class PsResource(Resource):
 		if not self.check_age():
 			self.payload = request.payload
 			self.allow_children = False
-			self.attributes["ct"] = 0
+			#self.attributes["ct"] = 0
+			self.content_type = defines.Content_types["text/plain"]
 			delete_subtree(self,False)
 			if request.max_age is not None:
 				self.max_age = time.time()+int(request.max_age)
@@ -312,12 +322,10 @@ class PsResource(Resource):
 	def check_content_type(self,payload):
 		#this means it's a JSON
 		if re.match(r'^{\"\w+\"\:((\w+)|(\"\w+\"))(,\"\w+\"\:((\"\w+\")|(\w+)))*}$',payload):
-			if self.attributes["ct"]==0:
-				return True
-			elif self.attributes["ct"]==50:
+			if int(self.actual_content_type) in [defines.Content_types["text/plain"], defines.Content_types["application/json"]]:
 				return True
 		else:
-			if self.attributes["ct"]==0: 
+			if int(self.actual_content_type) ==defines.Content_types["text/plain"]: 
 				return True
 		return False
 

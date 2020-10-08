@@ -279,7 +279,7 @@ class Resource(object):
 
         :return: the actual required Content-Type.
         """
-        return self._content_type
+        return self._attributes["ct"]
 
     @actual_content_type.setter
     def actual_content_type(self, act):
@@ -289,14 +289,16 @@ class Resource(object):
         :param act: the actual required Content-Type.
         """
         self._content_type = act
-
+    """
     @property
     def content_type(self):
-        """
+    """
+    """
         Get the CoRE Link Format ct attribute of the resource.
 
         :return: the CoRE Link Format ct attribute
-        """
+    """
+    """
         value = "ct="
         lst = self._attributes.get("ct")
         if lst is None:
@@ -304,6 +306,15 @@ class Resource(object):
         else:
             value += "\"" + str(lst) + "\""
         return value
+    """
+    @property
+    def content_type(self):
+        """
+        Get the CoRE Link Format ct attribute of the resource.
+
+        :return: the CoRE Link Format ct attribute
+        """
+        return "ct="+str(self._attributes["ct"])
 
     @content_type.setter
     def content_type(self, ct):

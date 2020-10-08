@@ -42,9 +42,9 @@ class ObserveLayer(object):
             # Observe request
             host, port = request.destination
             key_token = hash(str(host) + str(port) + str(request.token))
-
             self._relations[key_token] = ObserveItem(time.time(), None, True, None)
-
+        elif request.observe==1:
+            self.remove_subscribe_client(request)
         return request
 
     def receive_response(self, transaction):
@@ -167,7 +167,11 @@ class ObserveLayer(object):
         host, port = transaction.request.source
         path = "/" + transaction.request.uri_path
         key = hash(str(host) + str(port))
-        if key in self._relations[path]:
+        try:
+            relations = self._relations[path]
+        except KeyError:
+            return transaction
+        if key in relations:
             if transaction.response.code == defines.Codes.CONTENT.number:
                 if transaction.resource is not None and transaction.resource.observable:
                     transaction.response.observe = transaction.resource.observe_count
@@ -215,8 +219,7 @@ class ObserveLayer(object):
 
         :rtype: list
         :param resource: the resource for which send a new notification
-        :param root: deprecated
-        :return: the list of transactions to be notified
+        :return: the list of transactions of observers to be notified
         """
         ret = []
         path = resource.path
@@ -243,6 +246,13 @@ class ObserveLayer(object):
         return ret
 
     def notify_read(self,resource):
+        """
+                Prepare notification for the resource to all interested readers.
+
+                :rtype: list
+                :param resource: the resource for which send a new notification
+                :return: the list of transactions of readers to be notified
+                """
         ret = []
         try:
             readers = self._readers[resource.path]
@@ -280,7 +290,9 @@ class ObserveLayer(object):
 
     def remove_subscriber(self, message):
         """
-        Remove a subscriber based on token.
+        Remove a subscriber based on received message:
+        if it's a RESET then remove from the token,
+        if it's an UNSUBSCRIBE then remove from the uri_path and request source.
 
         :param message: the message
         """
@@ -290,6 +302,7 @@ class ObserveLayer(object):
         try:
             path = "/"+message.uri_path
         except:
+            #coming from receive_empty: message is a RST
             self._remove_rst_relation(message)
             return
         try:
@@ -329,3 +342,18 @@ class ObserveLayer(object):
             if key_client in self._relations[topic]:
                 if self._relations[topic][key_client].transaction.request.token == empty.token:
                     del self._relations[topic][key_client]
+
+    def remove_subscribe_client(self, request):
+        """
+        Remove a subscriber based on token.
+
+        :param message: the message
+        """
+        host, port = request.destination
+        key_token = hash(str(host) + str(port) + str(request.token))
+        try:
+            self._relations[key_token].transaction.completed = True
+            del self._relations[key_token]
+        except KeyError:
+            #error you were not subscribed
+            pass

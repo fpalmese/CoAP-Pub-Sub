@@ -8,7 +8,7 @@ clients = []
 def main(numSubs=10):
 	try:
 		for i in range(0,numSubs):
-			client = PSClient(server=(host, port), name="Client"+str(i+1))
+			client = PSClient(server=(host, port), name="sub"+str(i+1))
 			client.subscribe("/ps/topic")
 			clients.append(client)
 
@@ -17,7 +17,7 @@ def main(numSubs=10):
 		print(len(clients))
 		for c in clients:
 			sys.stdout.flush()
-			c.stop(0,True)
+			c.stop(2,True)
 		sys.stdout.flush()
 		sys.exit()
 

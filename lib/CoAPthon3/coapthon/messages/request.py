@@ -187,16 +187,30 @@ class Request(Message):
         option.value = None
         self.add_option(option)
 
-    def add_no_response(self):
+    def add_no_response(self,value=26):
         """
         Add the no-response option to the request
         # https://tools.ietf.org/html/rfc7967#section-2.1
         """
         option = Option()
         option.number = defines.OptionRegistry.NO_RESPONSE.number
-        option.value = 26
+        #26 means 16+8+2: not interested in all responses
+        option.value = value
+
         self.add_option(option)
 
+    @property
+    def no_response(self):
+        """
+        Get the no-response option of a request.
+
+        :return: the Proxy-Uri values or None if not specified by the request
+        :rtype : String
+        """
+        for option in self.options:
+            if option.number == defines.OptionRegistry.NO_RESPONSE.number:
+                return int(option.value)
+        return None
     @if_none_match.deleter
     def if_none_match(self):
         """

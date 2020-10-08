@@ -3,11 +3,13 @@ from PSClient import PSClient
 
 host="127.0.0.1"
 port=5683
-
+#for test use: qos=0 and no_response=26 (true)
+#	or     qos=1 and no_response=0 (false)
+#	note that with qos=1 and callback in the publish the request is non-blocking(will go on without waiting for response)
 def main(numVal,interval):
-	client = PSClient(server=(host, port),name="Publisher")
+	client = PSClient(server=(host, port),name="pub",qos=1,no_response = 0)
 	for i in range (0,numVal):
-		client.publish("/ps/topic",'val:'+str(i+1))
+		client.publish("/ps/topic",str(time.time()))
 		time.sleep(interval)
 	client.stop(1)
 

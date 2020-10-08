@@ -1,0 +1,44 @@
+broker starts a coap server with a root resource (/ps)
+broker simply calls the "listen" from CoAP class of coapthon server
+coapthon server listen:
+	create a transaction with the request through the messagelayer's method receive_request
+	if request is NOT duplicated call the method of coapthon server receive_request
+coapthon server receive_request:
+	call the receive_request from the blocklayer (take the reception block-wise)
+	call the receive_request from the observelayer (if observe = 0 add the subscription, if observe = 1 remove it) DOES IT WORK?
+	call the receive_request from the requestlayer (take request and execute the correct method). Create the response.
+		case GET: call the get_resource in the resourcelayer (if not found return "NOT_FOUND", if unsubscribe just send "unsubscribed)
+		case PUT: 
+		case POST:
+		case DELETE:
+	
+
+
+
+
+
+
+
+MODIFIED THINGS FOR TESTING:
+	COAP PUB-SUB
+		the qos=1 PSClient contains a callback to retrieve the response without blocking the client
+		the callback in the runningthread is called with an external thread
+		the runningthread if you use a PUT place the request payload in the response(to display in the files for testing)
+	COAP:
+		The qos=1 publish contains a callback
+		The send_request if on PUT uses a pubcallback to send a message and retrieve the response without waiting(qos=1)
+	MQTT-SN:
+		every request (connect,register,publish) is now placed in a while to resend until the ACK is received
+		this way the client can receive a PUBACK when qos=1 is used (before, it never looked for the puback)
+
+
+
+
+
+NOTE: 
+	1)copper doesn't send a "observe = 1" to remove the subscription when it receives a update from an old subscription it just sends to the server a RST with that token
+	2)il client coapthon non interrompe il thread di observe dopo l'unsubscribe
+
+
+
+INSTALL personal lib with "pip install -e path" or "python3 -m pip install -e path"

@@ -34,7 +34,7 @@ class CoAP(object):
     """
     Implementation of the CoAP server
     """
-    def __init__(self, server_address, multicast=False, starting_mid=None, sock=None, cb_ignore_listen_exception=None):
+    def __init__(self, server_address, qos = 0,multicast=False, starting_mid=None, sock=None, cb_ignore_listen_exception=None):
         """
         Initialize the server.
 
@@ -69,7 +69,7 @@ class CoAP(object):
         addrinfo = socket.getaddrinfo(self.server_address[0], None)[0]
 
         #attributes used for pub-sub
-        self._QoS = 0
+        self._qos = qos
         self._blocking_read = True
 
         if sock is not None:
@@ -235,14 +235,14 @@ class CoAP(object):
                 if transaction.response.type == defines.Types["CON"]:
                     self._start_retransmission(transaction, transaction.response)
                 self.send_datagram(transaction.response)
-                
-            if transaction.resource is not None and transaction.resource.changed:
-                if transaction.response.code == defines.Codes.CHANGED.number:
+
+            if transaction.resource is not None:
+                if transaction.resource.changed:
+                    #if transaction.response.code == defines.Codes.CHANGED.number:
                     self.notify(transaction.resource)
                     transaction.resource.changed = False
-
-            elif transaction.resource is not None and transaction.resource.deleted:
-                if transaction.response.code == defines.Codes.DELETED.number:
+                elif transaction.resource.deleted:
+                    #if transaction.response.code == defines.Codes.DELETED.number:
                     self.notify(transaction.resource, True)
                     transaction.resource.deleted = False
 
@@ -417,13 +417,15 @@ class CoAP(object):
                 transaction = self._blockLayer.send_response(transaction)
                 transaction = self._messageLayer.send_response(transaction)
                 if transaction.response is not None:
-                    notify_type = "NON" if self._QoS == 0 else "CON"
+                    notify_type = "NON" if self._qos == 0 else "CON"
                     transaction.response.type = defines.Types[notify_type]
-                    transaction.response.location_path = resource.path
+                    #transaction.response.location_path = resource.path
                     transaction.response.max_age = resource.max_age
                     if delete:
                         transaction.response.code = defines.Codes.NOT_FOUND.number
-                        transaction.response.payload = transaction.resource.path+ " has been deleted"
+                        #transaction.response.payload = transaction.resource.path+ " has been deleted"
+                        transaction.response.payload = "DELETED"
+                        del transaction.response.observe
                     if transaction.response.type == defines.Types["CON"]:
                         self._start_retransmission(transaction, transaction.response)
                     self.send_datagram(transaction.response)

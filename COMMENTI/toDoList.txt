@@ -1,0 +1,62 @@
+OK	1)fix delete_subtree in PSResource
+
+OK	2)fix delete and recreate of same resource
+
+OK	3)fix fact that if i send a BAD_REQUEST, it's forwarded the same to the subscribers
+
+OK	4)fix the subscribe to more topics from same client
+
+OK	5)fix ct=0; ct=40.. only ct=40 can be parent
+
+OK	6)handle unsubscribe
+
+OK	7)implement the create on piblish(with PUT you are able to create topic if not found)
+
+	8)fix the edit_resource in the resource_layer
+
+OK	9)see what to do with observers when resource is deleted. At the moment just send a content with "resource deleted"
+
+OK	10)how the client knows which topic received the notification?
+
+OK	11)Fix unsubscribe. Results blocking and nothing can be done after.
+
+	12)Note that create_resource in the resource_layer always calls the edit_resource-> NOT GOOD
+
+OK	13)When a topic is deleted, let the server delete the subs
+
+OK	14)If father topic is deleted, children are deleted too BUT subs to children are not notified, FIX.
+
+OK	15)If I send create on a non existing resource? Implement the post to more layers (as the create on publish)
+
+	16)Check the modified create_resource -> edit_resource is never called now!
+
+OK	17)Notify before or after you send publish ack-> Better before ACK then notify
+
+OK	18)Check implementation of sub/unsub with the client side token-> better to let the client free from the decision of tokens(sub and unsub should not 
+	match)
+
+OK	19)Implement correct DISCOVERY also for other paths. For example GET /ps/topic?rt=0 must return list of subtopics with rt=0
+
+OK	20)Modify the READ such that it can be BLOCKING: if there is no content the server will send you content later. (server must add in readers list, client must wait as for subscribe
+
+OK	21)Change the resource NAME to resource PATH in use
+
+	22)find the right place for the blocking READ in server
+
+OK	23)Find a testing base for COAP AND MQTT-SN
+
+OK	24)Implement API to choose easily for QOS both client and server-side
+
+	25)Resolve index in render_post and put for PSResource (for now there is a index parameter that is not present in normal resource, useful for create on publish)
+
+OK	26)Check in the PSClient qos,callback and no_response organization
+
+OK	27)Important: solve the threads client-side: every thread in the observe can receive any response from any request. A single thread will be enough.
+
+	28)Solve the client stop() in PSClient-> if there is a running thread it gives exception
+
+OK	29)Solve the remove_observe in the observe_layer for CLIENT. When i send unsubscribe i should remove the transaction from relations
+
+	30)Modify the resource ct-> could be more than one (but not in create WTF)
+
+

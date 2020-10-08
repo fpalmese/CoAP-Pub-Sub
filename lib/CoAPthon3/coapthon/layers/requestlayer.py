@@ -70,7 +70,8 @@ class RequestLayer(object):
             if resource is None:
                 # Not Found
                 transaction.response.code = defines.Codes.NOT_FOUND.number
-                transaction.response.payload = path+ " NOT FOUND"
+                #transaction.response.payload = path+ " NOT FOUND"
+                transaction.response.payload = "NOT FOUND"
                 return transaction
             transaction.resource = resource
             #perform a discovery with path and query specified in the uri

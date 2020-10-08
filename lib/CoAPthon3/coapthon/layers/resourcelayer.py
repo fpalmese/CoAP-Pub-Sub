@@ -139,7 +139,7 @@ class ResourceLayer(object):
                     # Advanced handler
                     resource, response = ret
                     resource.path = lp
-                    resource.changed = True
+                    #resource.changed = True
                     self._parent.root[resource.path] = resource
                     transaction.resource = resource
                     transaction.response = response
@@ -157,7 +157,7 @@ class ResourceLayer(object):
                         return transaction
                     resource, response = ret
                     resource.path = lp
-                    resource.changed = True
+                    #resource.changed = True
                     self._parent.root[resource.path] = resource
                     transaction.resource = resource
                     transaction.response = response
@@ -203,7 +203,7 @@ class ResourceLayer(object):
         if resource.max_age is not None:
             transaction.response.max_age = resource.max_age
 
-        resource.changed = True
+        #resource.changed = True
 
         transaction.resource = resource
 
@@ -367,6 +367,7 @@ class ResourceLayer(object):
                     # Advanced handler
                     resource, response = ret
                     resource.changed = True
+                    #sprint(resource)
                     resource.observe_count += 1
                     transaction.resource = resource
                     transaction.response = response

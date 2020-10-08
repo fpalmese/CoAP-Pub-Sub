@@ -57,6 +57,13 @@ class Transaction(object):
         """
         self._response = value
 
+    @response.deleter
+    def response(self):
+        """
+               Delete the response of a transaction.
+        """
+        self._response = None
+
     @property
     def request(self):
         """
