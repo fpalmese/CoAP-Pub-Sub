@@ -262,7 +262,6 @@ class MessageLayer(object):
                 no_response = no_response-8
             if no_response >=2:
                 # codes 2.xx
-                print("we are here")
                 if transaction.response.code >= 65 and transaction.response.code < 128:
                     if transaction.request.type == defines.Types["CON"] and not transaction.request.acknowledged:
                         transaction.response.type = defines.Types["ACK"]
@@ -274,19 +273,7 @@ class MessageLayer(object):
                     else:
                         del transaction.response
                     return transaction
-            """
-                if no_response == 26:
-                    if transaction.request.type ==defines.Types["CON"] and not transaction.request.acknowledged:
-                        transaction.response.type = defines.Types["ACK"]
-                        transaction.response.mid = transaction.request.mid
-                        transaction.response.acknowledged = True
-                        transaction.completed = True
-                        transaction.response.payload = None
-                        transaction.response.code = None
-                    else:
-                        del transaction.response
-                return transaction
-            """
+
         logger.debug("send_response - " + str(transaction.response))
         if transaction.response.type is None:
             if transaction.request.type == defines.Types["CON"] and not transaction.request.acknowledged:

@@ -1,0 +1,43 @@
+-------- Start FFDC ------s
+FFDC.CWNAN.20201008.124251.336.dmp
+Product      :- Really Small Message Broker
+Version      :- 1.3.0.2
+Build        :- Sep 12 2020 16:01:05
+Features     :- bridge MQTTS 
+Pointer size :- 8 bytes
+Date/Time    :- Thu Oct  8 12:42:51 2020
+
+Reason       :- Some memory not freed at shutdown, possible memory leak
+
+=========== Start of stack trace ==========
+main (254)
+=========== End of stack trace ==========
+
+Heap scan start, total 512 bytes
+Heap element size 16, line 330, file MQTTSPacket.c, ptr 0x557bd2a9baa0
+  Content           
+Heap element size 176, line 371, file MQTTSProtocol.c, ptr 0x557bd2a9bb90
+  Content           
+Heap element size 32, line 50, file LinkedList.c, ptr 0x557bd2a9bc80
+  Content           
+Heap element size 32, line 50, file LinkedList.c, ptr 0x557bd2a9bd30
+  Content           
+Heap element size 32, line 50, file LinkedList.c, ptr 0x557bd2a9bde0
+  Content           
+Heap element size 32, line 50, file LinkedList.c, ptr 0x557bd2a9be90
+  Content           
+Heap element size 32, line 50, file LinkedList.c, ptr 0x557bd2a9bf40
+  Content           
+Heap element size 32, line 50, file LinkedList.c, ptr 0x557bd2a9bff0
+  Content           
+Heap element size 16, line 393, file MQTTSProtocol.c, ptr 0x557bd2a9c0a0
+  Content           
+Heap element size 48, line 246, file Tree.c, ptr 0x557bd2a9c200
+  Content           
+Heap element size 16, line 392, file MQTTSPacket.c, ptr 0x557bd2a9c2c0
+  Content           
+Heap element size 16, line 1060, file MQTTSProtocol.c, ptr 0x557bd2a9c360
+  Content           
+Heap element size 32, line 88, file LinkedList.c, ptr 0x557bd2a9c400
+  Content           
+Heap scan end

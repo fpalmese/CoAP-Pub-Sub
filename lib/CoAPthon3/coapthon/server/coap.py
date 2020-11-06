@@ -409,6 +409,7 @@ class CoAP(object):
         observers = self._observeLayer.notify(resource)
         readers = self._observeLayer.notify_read(resource)
         logger.debug("Notify")
+        payload = resource.payload
         for transaction in observers+readers:
             with transaction:
                 transaction.response = None
@@ -419,8 +420,10 @@ class CoAP(object):
                 if transaction.response is not None:
                     notify_type = "NON" if self._qos == 0 else "CON"
                     transaction.response.type = defines.Types[notify_type]
+                    transaction.response.payload = payload
                     #transaction.response.location_path = resource.path
-                    transaction.response.max_age = resource.max_age
+                    if resource.max_age is not 0:
+                        transaction.response.max_age = resource.max_age
                     if delete:
                         transaction.response.code = defines.Codes.NOT_FOUND.number
                         #transaction.response.payload = transaction.resource.path+ " has been deleted"

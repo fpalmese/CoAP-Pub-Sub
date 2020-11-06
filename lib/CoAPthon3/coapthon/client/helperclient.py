@@ -118,8 +118,6 @@ class HelperClient(object):
         self.protocol = CoAP(self.server, random.randint(1, 65535), self._wait_response, sock=sock,
                              cb_ignore_read_exception=cb_ignore_read_exception, cb_ignore_write_exception=cb_ignore_write_exception)
         self.queue = Queue()
-        self.subThreads = {}
-        self.readThreads = {}
         self.runningThread = None
         self.pendingRequests = {}
 
@@ -259,8 +257,6 @@ class HelperClient(object):
             request.type = defines.Types["NON"]
 
         self.pendingRequests[request.token]=request
-        #self.subThreads[path].stopit()
-        #del self.subThreads[path]
 
         return self.send_request(request,timeout,no_response=26)
 

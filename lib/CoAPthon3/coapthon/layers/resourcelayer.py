@@ -693,8 +693,11 @@ class ResourceLayer(object):
             resource = self._parent.root["/ps"]
         for child in resource.children:
             if not child.check_age():
-                print(child.path+" MAX AGE EXPIRED")
-                child.delete_resource()
+                #print(child.path+" MAX AGE EXPIRED")
+                try:
+                    child.delete_resource()
+                except:
+                    pass
                 self._parent.remove_resource(child.path)
             else:
                 self.purge(child)

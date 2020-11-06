@@ -1,68 +1,68 @@
-1)Coapthon serializer->changed the encoding from UTF-8 to latin-1 for the TOKEN
+NO	1)Coapthon serializer->changed the encoding from UTF-8 to latin-1 for the TOKEN
 
-2)Added token in observe request in client-> token is needed
+OK	2)Added token in observe request in client-> token is needed
 
-3)Added function remove_observe into client to send a unsubscribe
+OK	3)Added function remove_observe into client to send a unsubscribe
 
-4)Modified the PSResource handle_get to send the "unsubscribed" when receive a unsub
+NO	4)Modified the PSResource handle_get to send the "unsubscribed" when receive a unsub
 
-5)Modified the PSResource in the createResFromPayload and in handle_post to create children only if ct=40-> added allow_children setter in resource in coapthon
+NO	5)Modified the PSResource in the createResFromPayload and in handle_post to create children only if ct=40-> added allow_children setter in resource in coapthon
 
-6)Modified the PSResource to fix the deletion of a resource-> added a "father" reference to access resource's parent
+NO	6)Modified the PSResource to fix the deletion of a resource-> added a "father" reference to access resource's parent
 
-7)Modified the receive_request in server to send updates only on Changed/Deleted
+OK	7)Modified the receive_request in server to send updates only on Changed/Deleted
 
-8)Modified the notify in the server (coap.py) -> added delete parameter to notify the subscribers of deletion of a resource
+OK	8)Modified the notify in the server (coap.py) -> added delete parameter to notify the subscribers of deletion of a resource
 
-9)Modified the delete_resource in the resource_layer on server to add a "resource.deleted=True"
+NO	9)Modified the delete_resource in the resource_layer on server to add a "resource.deleted=True"
 
-10)Modified the thread that handles the observe (client). Now the thread is a "subThread" and can be killed
+OK	10)Modified the thread that handles the observe (client). Now the thread is a "subThread" and can be killed
 
-11)Implemented the create on publish function (in PSResource). Modified the update_resource in resource_layer of server in order to implement it
+OK	11)Implemented the create on publish function (in PSResource). Modified the update_resource in resource_layer of server in order to implement it
 
-12)Modified the delete_subtree in PSResource to notify all subtopic subscriber on deletion of a subtree (actually the notify is now handled in the server remove_resource)
+NO	12)Modified the delete_subtree in PSResource to notify all subtopic subscriber on deletion of a subtree (actually the notify is now handled in the server remove_resource)
 
-13)Added function remove_relations(resource) in server to remove all the subscribers for a specific resource
+OK	13)Added function remove_relations(resource) in server to remove all the subscribers for a specific resource
 
-14)Added a client.stop() function to stop the client if no more threads are running.(there is an option to force the stop of them)
+OK	14)Added a client.stop() function to stop the client if no more threads are running.(there is an option to force the stop of them)
 
-15)Modified the create_resource in the server resource_layer to create multiple topics in hierarchy(as the create on publish).
+OK	15)Modified the create_resource in the server resource_layer to create multiple topics in hierarchy(as the create on publish).
 
-16)Fixed the update_resource and the create_resource in the resource_layer: Before the create_resource always called the edit_resource without sense. Now it calls the add_resource. 
+OK	16)Fixed the update_resource and the create_resource in the resource_layer: Before the create_resource always called the edit_resource without sense. Now it calls the add_resource. 
 
-17)It's now possible to modify a resource just creating it again(it will be modified).
+OK	17)It's now possible to modify a resource just creating it again(it will be modified).
 
-18)Fixed several non-draft compliant stuff: 
-	-Modified the regex for the create resource (now compliant)
-	-The create now returns the location in the Location-Path option of the response
-	-Unsubscribe now sends a NO_CONTENT message with a "UNSUBSCRIBED" payload
-	-Implemented the max_age option: a resource now has a max_age and will be deleted after the max_age expires. Max-age can be changed on publishes
-	-Implemented the purge for max_age. A thread that debugs old transactions will delete topics with expired max_age
-	-Implemented blocking READ: server has a list of readers to notify together with the subscribers on a new content (notify only once).
-	-Implemented blocking READ also client-side: If client receives NO_CONTENT from a READ it will wait for a subsequent update
-	-Implemented the DISCOVERY also for the subtopics (added functions discover_subtopics and discover_subtree_payload in the resource_layer)
+	18)Fixed several non-draft compliant stuff: 
+		-Modified the regex for the create resource (now compliant)
+OK		-The create now returns the location in the Location-Path option of the response
+OK		-Unsubscribe now sends a NO_CONTENT message with a "UNSUBSCRIBED" payload
+OK		-Implemented the max_age option: a resource now has a max_age and will be deleted after the max_age expires. Max-age can be changed on publishes
+OK		-Implemented the purge for max_age. A thread that debugs old transactions will delete topics with expired max_age
+OK		-Implemented blocking READ: server has a list of readers to notify together with the subscribers on a new content (notify only once).
+OK		-Implemented blocking READ also client-side: If client receives NO_CONTENT from a READ it will wait for a subsequent update
+OK		-Implemented the DISCOVERY also for the subtopics (added functions discover_subtopics and discover_subtree_payload in the resource_layer)
 
-19)Implemented the choice of QOS on client. Threads will wait for the response if you send with qos=0 or with qos=1 but using a callback
+OK	19)Implemented the choice of QOS on client. Threads will wait for the response if you send with qos=0 or with qos=1 but using a callback
 
-20)Implemented the choice of QOS on server. Server can now choose how to send notifications
+OK	20)Implemented the choice of QOS on server. Server can now choose how to send notifications
 
-21)Changed the threads on client-> Now its not a thread for each subscribe/NON request. One single thread stays on to listen for incoming messages and call the callback.
+	21)Changed the threads on client-> Now its not a thread for each subscribe/NON request. One single thread stays on to listen for incoming messages and call the callback.
 
-22)Modified the notifications-> Now the NOT_FOUND notifications have no observe option (as draft says)
+OK	22)Modified the notifications-> Now the NOT_FOUND notifications have no observe option (as draft says)
 
-23)Added the content-type in the request for the discovery(helperclient)-> application/link-format
+OK	23)Added the content-type in the request for the discovery(helperclient)-> application/link-format
 
-24)Added the no_response option server_side: if no_response is set in the request you send a empty ACK for CON requests or nothing for NON
+OK	24)Added the no_response option server_side: if no_response is set in the request you send a empty ACK for CON requests or nothing for NON
 
-25)Added the no_response in all his details in both client and server: server will take care of the value and ignore as described in the rfc:https://tools.ietf.org/html/rfc7967#section-2.1
+OK	25)Added the no_response in all his details in both client and server: server will take care of the value and ignore as described in the rfc:https://tools.ietf.org/html/rfc7967#section-2.1
 the option is now no more always 26 but the client can choose an'integer value-> no more boolean to set it
 only no_response=26 will let the client ignore the response
 
-26) removed a "resource.changed=true" in the add_resource. This marked the parent_resource as changed and made the server notify subscribers on reception on any POST request (also on bad post requests)
+OK	26) removed a "resource.changed=true" in the add_resource. This marked the parent_resource as changed and made the server notify subscribers on reception on any POST request (also on bad post requests)
 
-27)Added a "response.deleter" in the transaction so that if the no_response results in the server not sending a response, the transaction can remove the response so manage it
+OK	27)Added a "response.deleter" in the transaction so that if the no_response results in the server not sending a response, the transaction can remove the response so manage it
 
-28) Fixed the remove_observe and its response handling-> now the running thread will remove the sub from pending requests if the response to the unsub comes (with a NON or a ACK). Not possible to send a unsub with the no_response option (you need the response to remove the pending subscribe. May be possible to implement: if no_response then remove)
+OK	28) Fixed the remove_observe and its response handling-> now the running thread will remove the sub from pending requests if the response to the unsub comes (with a NON or a ACK). Not possible to send a unsub with the no_response option (you need the response to remove the pending subscribe. May be possible to implement: if no_response then remove)
 
-29) Removed the uri_path in the notification and modified the response_callback and the running thread. Now the notification and response path is taken from the token (matching request path) and passed to the callback
+OK	29) Removed the uri_path in the notification and modified the response_callback and the running thread. Now the notification and response path is taken from the token (matching request path) and passed to the callback
 

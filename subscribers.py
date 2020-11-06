@@ -11,6 +11,7 @@ def main(numSubs=10):
 			client = PSClient(server=(host, port), name="sub"+str(i+1))
 			client.subscribe("/ps/topic")
 			clients.append(client)
+			time.sleep(0.03)
 
 	except KeyboardInterrupt:
 		print("SHUTTING DOWN")

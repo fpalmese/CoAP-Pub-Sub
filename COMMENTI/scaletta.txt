@@ -1,0 +1,12 @@
+Scaletta tesi:
+
+1. Introduction to IoT and comm. protocols
+2. Stato dell'arte
+3. From CoAP to CoAP Pub-Sub
+	2.1 CoAP
+	2.2 CoAP Pub-Sub
+	2.2 Implementation
+	2.3 Results
+4. CoAP Pub-Sub vs. MQTT-SN
+5. Experimental Results
+6. Conclusions

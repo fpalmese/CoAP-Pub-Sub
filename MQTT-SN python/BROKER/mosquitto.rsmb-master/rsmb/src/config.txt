@@ -1,0 +1,5 @@
+trace_output protocol
+listener 1885 INADDR_ANY mqtts
+multicast_groups 224.0.18.83
+advertise 225.0.18.83:1884 30 33
+

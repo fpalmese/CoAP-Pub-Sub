@@ -30,6 +30,8 @@ MODIFIED THINGS FOR TESTING:
 	MQTT-SN:
 		every request (connect,register,publish) is now placed in a while to resend until the ACK is received
 		this way the client can receive a PUBACK when qos=1 is used (before, it never looked for the puback)
+		modified connect keepalive-> now it works
+		added qos =2 waiting for pubrec, sending pubrel and receiving pubcomp
 
 
 
@@ -42,3 +44,24 @@ NOTE:
 
 
 INSTALL personal lib with "pip install -e path" or "python3 -m pip install -e path"
+
+DIFFERENZE TEORICHE MQTT-SN E COAP:
+	OK) CoAP usa DISCOVERY per i topic, mqtt no
+	OK) MQTT-SN deve mantenere una connessione-> da questo derivano connect, ping, will, disconnect
+	OK) MQTT-SN usa topic-id: da questo deriva la register
+	OK) MQTT-SN puo usare delle wildcard per registrarsi a piu topic
+	OK) COAP si basa su risorse che possono essere create e cancellate
+	OK) MQTT puo fare subscribe a topic che non esistono visto che un topic è solo una stringa
+	OK) MQTT gestisce duplicati con mid e dup, coap con solo il mid capisce
+	OK) COAP associa richieste e risposte con un TOKEN
+	OK) la notifica di Coap è una risposta, la notifica di mqtt è una publish
+	OK)Confronto tra QoS di COAP and MQTT
+	OK)in COAP il server sceglie la QoS per i subscribers, in MQTT i sub scelgono
+
+	OK) possibilità di read per coap, non per mqtt
+	OK)COAP di base usa il retain, mqtt ha la possibilità di farlo
+	NO) coap di base manda risposte ad ogni richiesta essendo request-response, a meno che non sia specificato il "no-response"
+
+	OK) coap consente il riordinamento delle notifiche di un topic tramite Observe, mqtt no (manda la publish e stop)
+
+	confronto tra header nella teoria (tabella magari) o nella pratica boh

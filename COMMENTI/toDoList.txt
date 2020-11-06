@@ -41,7 +41,7 @@ OK	20)Modify the READ such that it can be BLOCKING: if there is no content the s
 
 OK	21)Change the resource NAME to resource PATH in use
 
-	22)find the right place for the blocking READ in server
+OK	22)find the right place for the blocking READ in server
 
 OK	23)Find a testing base for COAP AND MQTT-SN
 
@@ -59,4 +59,5 @@ OK	29)Solve the remove_observe in the observe_layer for CLIENT. When i send unsu
 
 	30)Modify the resource ct-> could be more than one (but not in create WTF)
 
+	31)Insert qos and no_response in the single functions in the helperclient and PSClient instead of being in the class
 

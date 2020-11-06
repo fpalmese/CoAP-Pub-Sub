@@ -78,11 +78,9 @@ class RequestLayer(object):
             if(transaction.request.uri_query is not None and transaction.request.uri_query!=""):
                 return self._server.resourceLayer.discover_subtopics(transaction)
             transaction = self._server.resourceLayer.get_resource(transaction)
-
             """
                 BLOCKING READ HERE
             """
-
             if self._server._blocking_read:
                 if (transaction.response.payload is None or transaction.response.payload == "") and transaction.response.code == defines.Codes.CONTENT.number:
                     transaction.response.code = defines.Codes.NO_CONTENT.number

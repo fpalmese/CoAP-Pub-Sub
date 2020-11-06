@@ -1,6 +1,6 @@
 from coapthon.server.coap import CoAP
 from PsResource import PsResource
-import sys
+import sys,os
 
 """
     Main server class for the Broker application
@@ -23,6 +23,10 @@ def main():
 	print("[BROKER] Starting Broker")
 	sys.stdout.flush()    
 	server = CoAPBroker("::", 5683)
+	pid = os.getpid()
+	f = open("/home/fabio/Scrivania/COAP PUB-SUB/csv/pid.txt","w")
+	f.write(str(pid))
+	f.close()
 	try:
 		server.listen(10)
 	except KeyboardInterrupt:

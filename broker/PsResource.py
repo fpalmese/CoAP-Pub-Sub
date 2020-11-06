@@ -82,6 +82,7 @@ class PsResource(Resource):
 		response.code = defines.Codes.CONTENT.number
 		if(request.observe == 0): # Log observe binding
 			host, port = request.source
+		
 			if response.payload is None or response.payload=="":
 				response.code = defines.Codes.NO_CONTENT.number
 				response.payload = "Subscribed."
