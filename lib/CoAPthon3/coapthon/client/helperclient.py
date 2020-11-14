@@ -40,9 +40,9 @@ class subThread(threading.Thread):
     def __init__(self,client,request,callback, *args, **kwargs):
         super(subThread, self).__init__(*args, **kwargs)
         self.toStop = False
-        self.args = (request,callback)
+        self.request = request
+        self.callback=callback
         self.client = client
-        #self.daemon = True
 
     def stopit(self):
         self.toStop = True
@@ -66,12 +66,9 @@ class subThread(threading.Thread):
                 if hasattr(request,"uri_path"):
                     response.uri_path = request.uri_path
                 #Call the callback
-                # self.args[1](response)
-                #the line down here is made to print the put response with the put payload (only for testing)
-                if request.code == defines.Codes.PUT.number:
-                    response.payload = request.payload
+                # self.callback(response)
                 # the 2 lines down are to call the callback but with an other thread (to not block here and go on)
-                cbthread = threading.Thread(target=self.args[1], args=([response]))
+                cbthread = threading.Thread(target=self.callback, args=([response]))
                 cbthread.start()
 
                 #receive response for UNSUBSCRIBE here
@@ -104,7 +101,7 @@ class HelperClient(object):
     """
     Helper Client class to perform requests to remote servers in a simplified way.
     """
-    def __init__(self, server,qos=1,sock=None, cb_ignore_read_exception=None, cb_ignore_write_exception=None):
+    def __init__(self, server,sock=None, cb_ignore_read_exception=None, cb_ignore_write_exception=None):
         """
         Initialize a client to perform request to a server.
 
@@ -113,7 +110,6 @@ class HelperClient(object):
         :param cb_ignore_read_exception: Callback function to handle exception raised during the socket read operation
         :param cb_ignore_write_exception: Callback function to handle exception raised during the socket write operation 
         """
-        self.qos = qos
         self.server = server
         self.protocol = CoAP(self.server, random.randint(1, 65535), self._wait_response, sock=sock,
                              cb_ignore_read_exception=cb_ignore_read_exception, cb_ignore_write_exception=cb_ignore_write_exception)
@@ -212,7 +208,7 @@ class HelperClient(object):
 
         return self.send_request(request, callback, timeout)
 
-    def observe(self, path, callback, timeout=None, **kwargs):  # pragma: no cover
+    def observe(self, path, callback, timeout=None, qos=1, **kwargs):  # pragma: no cover
         """
         Perform a GET with observe = 0 on a certain path.
 
@@ -224,7 +220,7 @@ class HelperClient(object):
         request = self.mk_request(defines.Codes.GET, path)
         request.token = generate_random_token(2)
         request.observe = 0
-        if self.qos == 0:
+        if qos == 0:
             request.type = defines.Types["NON"]
 
         for k, v in kwargs.items():
@@ -234,8 +230,7 @@ class HelperClient(object):
         return self.send_request(request, callback, timeout)
 
 
-#function added by Fabio Palmese. Necessary to send the unsubscribe.
-    def remove_observe(self, path,callback=None,timeout=None,**kwargs):  # pragma: no cover
+    def remove_observe(self, path, callback=None,timeout=None, qos=1,no_response=0, **kwargs):  # pragma: no cover
         """
         Perform a GET with observe = 1 on a certain path.
 
@@ -251,16 +246,15 @@ class HelperClient(object):
         for k, v in kwargs.items():
             if hasattr(request, k):
                 setattr(request, k, v)
-        #kill the thread listening on the topic
-
-        if self.qos == 0:
+        if no_response!=0:
+            request.add_no_response(no_response)
+        if qos == 0:
             request.type = defines.Types["NON"]
+        #self.pendingRequests[request.token]=request
 
-        self.pendingRequests[request.token]=request
+        return self.send_request(request,callback,timeout)
 
-        return self.send_request(request,timeout,no_response=26)
-
-    def delete(self, path, callback=None, timeout=None, no_response = 0,**kwargs):  # pragma: no cover
+    def delete(self, path, callback=None, timeout=None, qos=1, no_response = 0,**kwargs):  # pragma: no cover
         """
         Perform a DELETE on a certain path.
 
@@ -272,16 +266,16 @@ class HelperClient(object):
         """
         request = self.mk_request(defines.Codes.DELETE, path)
 
-        if self.qos==0:
+        if qos==0:
             request.type = defines.Types["NON"]
         if no_response!=0:
             request.add_no_response(no_response)
         for k, v in kwargs.items():
             if hasattr(request, k):
                 setattr(request, k, v)
-        return self.send_request(request, callback, timeout, no_response=no_response)
+        return self.send_request(request, callback, timeout)
 
-    def post(self, path, payload, callback=None, timeout=None, no_response=0, **kwargs):  # pragma: no cover
+    def post(self, path, payload, callback=None, timeout=None, qos=1, no_response=0, **kwargs):  # pragma: no cover
         """
         Perform a POST on a certain path.
 
@@ -297,16 +291,16 @@ class HelperClient(object):
         request.payload = payload
         if no_response!=0:
             request.add_no_response(no_response)
-        if self.qos==0:
+        if qos==0:
             request.type = defines.Types["NON"]
 
         for k, v in kwargs.items():
             if hasattr(request, k):
                 setattr(request, k, v)
 
-        return self.send_request(request, callback, timeout, no_response=no_response)
+        return self.send_request(request, callback, timeout)
 
-    def put(self, path, payload, callback=None, timeout=None, no_response=0, **kwargs):  # pragma: no cover
+    def put(self, path, payload, callback=None, timeout=None, qos=1, no_response=0, **kwargs):  # pragma: no cover
         """
         Perform a PUT on a certain path.
 
@@ -323,16 +317,16 @@ class HelperClient(object):
 
         if no_response!=0:
             request.add_no_response(no_response)
-        if self.qos==0:
+        if qos==0:
             request.type = defines.Types["NON"]
 
         for k, v in kwargs.items():
             if hasattr(request, k):
                 setattr(request, k, v)
 
-        return self.send_request(request, callback, timeout, no_response=no_response)
+        return self.send_request(request, callback, timeout)
 
-    def discover(self, callback=None, timeout=None, **kwargs):  # pragma: no cover
+    def discover(self, callback=None, timeout=None, qos=1, **kwargs):  # pragma: no cover
         """
         Perform a Discover request on the server.
 
@@ -342,7 +336,7 @@ class HelperClient(object):
         """
         request = self.mk_request(defines.Codes.GET, defines.DISCOVERY_URL)
         request.content_type = defines.Content_types["application/link-format"]
-        if self.qos==0:
+        if qos==0:
             request.type = defines.Types["NON"]
         for k, v in kwargs.items():
             if hasattr(request, k):
@@ -350,7 +344,7 @@ class HelperClient(object):
 
         return self.send_request(request, callback, timeout)
 
-    def send_request(self, request, callback=None, timeout=None, no_response=0):  # pragma: no cover
+    def send_request(self, request, callback=None, timeout=None):  # pragma: no cover
         """
         Send a request to the remote server.
 
@@ -360,8 +354,9 @@ class HelperClient(object):
         :return: the response
         """
         self.protocol.send_message(request)
-        if no_response==26:
-            return
+        if request.no_response is not None:
+            if request.no_response==26:
+                return
         if callback is not None:
             self.pendingRequests[request.token] = request
             if self.runningThread is None:

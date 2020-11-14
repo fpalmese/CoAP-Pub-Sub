@@ -427,7 +427,7 @@ class CoAP(object):
                     if delete:
                         transaction.response.code = defines.Codes.NOT_FOUND.number
                         #transaction.response.payload = transaction.resource.path+ " has been deleted"
-                        transaction.response.payload = "DELETED"
+                        transaction.response.payload = "Deleted"
                         del transaction.response.observe
                     if transaction.response.type == defines.Types["CON"]:
                         self._start_retransmission(transaction, transaction.response)

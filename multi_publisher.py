@@ -1,5 +1,5 @@
 import time,os,threading,sys
-from PSClient import PSClient
+from Client.PSClient import PSClient
 
 host="127.0.0.1"
 port=5683
@@ -13,13 +13,13 @@ def main(numClients):
 	clients = []
 	#start clients
 	for i in range(0,numClients):
-		#client = PSClient(server=(host,port),name="pub"+str(i+1),qos=0,no_response=26)
-		client = PSClient(server=(host,port),name="pub"+str(i+1),qos=1,no_response=0)
+		client = PSClient(server=(host,port),name="pub"+str(i+1))
 		clients.append(client)
 
 	#publish numVal values on same topic
 	for i in range (0,numVal):
-		clients[i%numClients].publish("/ps/topic",str(time.time()))
+		#clients[i%numClients].publish("/ps/topic",str(time.time()),qos=0,no_response=26)
+		clients[i%numClients].publish("/ps/topic",str(time.time()),qos=1,no_response=0)
 		time.sleep(interval)
 
 	time.sleep(30)

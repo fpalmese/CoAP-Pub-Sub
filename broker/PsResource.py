@@ -104,7 +104,7 @@ class PsResource(Resource):
 	def create_res_from_payload(self,payload,base):
 		#RegEx to check if the format of the request is RFC compliant (also according to CoAPthon defines)
 
-		if (payload is None or not re.match(r'^<(\w+)>((;rt=\w+)|(;if=\w+)|(;sz=\d+))*(;ct=\d+)((;rt=\w+)|(;if=\d+)|(;sz=\d+))*$',payload)):
+		if (payload is None or not re.match(r'^<(\w+)>((;rt=\w+)|(;if=\w+)|(;sz=\d+))*(;ct=\d+)((;rt=\w+)|(;if=\w+)|(;sz=\d+))*$',payload)):
 		#if(payload is None or not re.match(r'^<(\w+)>;(?:(ct=\w+;)|(rt=\w+;)|(if=\w+;)|(sz=\w+;))+$',payload)):
 			return None,False
 		topicData = payload.split(";")
@@ -136,7 +136,7 @@ class PsResource(Resource):
 					elif(int(val) == 40):
 						resource.allow_children = True
 					#val = [val]
-			attr[key] = int(val)
+			attr[key] = val
 		resource.attributes = attr
 		sys.stdout.flush()    
 		return resource, exists
