@@ -6,7 +6,7 @@
 (python3 resetCsv.py $1 $2)
 
 #Run broker
-(python3 broker/broker.py)&
+(python3 broker/brokerTesting.py)&
 
 sleep 1
 

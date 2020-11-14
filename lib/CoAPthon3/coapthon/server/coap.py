@@ -421,12 +421,8 @@ class CoAP(object):
                     notify_type = "NON" if self._qos == 0 else "CON"
                     transaction.response.type = defines.Types[notify_type]
                     transaction.response.payload = payload
-                    #transaction.response.location_path = resource.path
-                    if resource.max_age is not 0:
-                        transaction.response.max_age = resource.max_age
                     if delete:
                         transaction.response.code = defines.Codes.NOT_FOUND.number
-                        #transaction.response.payload = transaction.resource.path+ " has been deleted"
                         transaction.response.payload = "Deleted"
                         del transaction.response.observe
                     if transaction.response.type == defines.Types["CON"]:

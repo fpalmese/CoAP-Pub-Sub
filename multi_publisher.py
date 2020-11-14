@@ -1,5 +1,5 @@
 import time,os,threading,sys
-from Client.PSClient import PSClient
+from Client.PSClientTesting import PSClient
 
 host="127.0.0.1"
 port=5683

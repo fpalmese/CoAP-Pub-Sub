@@ -1,70 +1,36 @@
 from coapthon.resources.resource import Resource
 from coapthon import defines
-import re,sys,json,time
-"""
-	Delete the entire subtree of a resource if it has children,
-	by recursive iteration of the subtree of root root_resource.
-	If base is true, the deletion will be performed by the calling
-	method, otherwise the deletion will be performed by the function
-"""
-
-def delete_subtree_old(root_resource,base=False):
-	if(len(root_resource.children) == 0):
-		print("SONO QUI:"+root_resource.name)
-		print("[BROKER] Deleting: "+root_resource.name)
-		root_resource.cs.remove_resource(root_resource.name)
-		return
-	for l in root_resource.children:
-		print("SONO QUI:"+l.name)
-		delete_subtree(l,False)
-		return
-		print("[BROKER] Removing from children: "+l.name)
-		#root_resource.children.remove(l)
-		if(len(root_resource.children) == 0 and not base):
-			print("[BROKER] Deleting: "+root_resource.name)
-			root_resource.cs.remove_resource(root_resource.name)
-			break
-
-	#notify all subscribers that the resource has been deleted			
-	#root_resource.cs.notify(root_resource,True)
- 
-
-def delete_subtree(root_resource,toDelete=True):
-	for child in root_resource.children:
-		print("[Broker] Deleting subtree of: "+child.path)
-		#root_resource.children.remove(child)
-		delete_subtree(child)
-	#root_resource.parent.children.remove(root_resource)
-	root_resource.children = []
-	if(toDelete):
-		print("[Broker] Deleting resource: "+root_resource.path)
-		root_resource.cs.remove_resource(root_resource.path)
+import re,sys,time
 
 
+class TopicResource(Resource):
+	def __init__(self, name="Topic",broker=None):
+		"""
+        	Contstructor function to create a new resource.
 
-
-"""
-	Base resource for the Publish/Subsribe topic.
-	Follows the Composite Design Pattern to maintain a recursive list 
-	of children.
-"""
-class PsResource(Resource):
-	def __init__(self, name="/ps",coap_server=None,):
-		super(PsResource, self).__init__(name, coap_server, visible=True,observable=True, allow_children=False)
-		self.cs = coap_server
-		self.resource_type = "core.ps" # draft stabdard
-		self.content_type = defines.Content_types["text/plain"]
-		self.payload = ""
+        	:param name: the name of the new resource
+        	:param broker: the broker where the resource is stored
+        	:return: tuple containing the resource and the response
+        	"""
+		super(TopicResource, self).__init__(name, broker, visible=True,observable=True, allow_children=False)
+		self.cs = broker
+		self.path = name
 		self.children = []
 		self.parent = None
-		self.max_age = 0
-		self.path = name
-		#self.attributes["ct"]=0
-	"""
-		Handle get requests: observe requests are internally served
-		by CoAPthon itself. 
-	"""
+		self.content_type = defines.Content_types["text/plain"]	#set the default to ct=0
+		self.resource_type = "core.ps"
+		self.payload = ""
+		self.max_age = 0	
+
+
 	def render_GET_advanced(self, request, response):
+		"""
+        	Function to handle GET requests
+
+        	:param request: the request
+        	:param response: the response
+        	:return: tuple containing the resource and the response
+        	"""
 		sys.stdout.flush()
 		#if resource has expired force the deletion and return not found
 		if not self.check_age():
@@ -78,75 +44,74 @@ class PsResource(Resource):
 			return None,response
 			
 		response.payload = self.payload
-		response.max_age = self.max_age
+		if self.max_age != 0:
+			response.max_age = self.max_age
 		response.code = defines.Codes.CONTENT.number
 		if(request.observe == 0): # Log observe binding
 			host, port = request.source
 		
 			if response.payload is None or response.payload=="":
 				response.code = defines.Codes.NO_CONTENT.number
-				response.payload = "Subscribed."
-			print("[BROKER] Binding observe for: "+host+" to "+self.path)
+				response.payload = "Subscribed"
 			sys.stdout.flush()    
 		elif(request.observe == 1): # Log observe removing
 			host, port = request.source
-			response.payload = "Unsubscribed."
+			response.payload = "Unsubscribed"
 			response.code = defines.Codes.NO_CONTENT.number
-			print("[BROKER] Removing observe for: "+host+" to "+self.path)
 			sys.stdout.flush()
 		return self, response
 
-	"""
-		Create a resource from the POST payload for the base url.
-		Returns None if he request is BAD
-		Returns another existant resource in case of duplicates
-	"""
-	def create_res_from_payload(self,payload,base):
-		#RegEx to check if the format of the request is RFC compliant (also according to CoAPthon defines)
 
-		if (payload is None or not re.match(r'^<(\w+)>((;rt=\w+)|(;if=\w+)|(;sz=\d+))*(;ct=\d+)((;rt=\w+)|(;if=\w+)|(;sz=\d+))*$',payload)):
-		#if(payload is None or not re.match(r'^<(\w+)>;(?:(ct=\w+;)|(rt=\w+;)|(if=\w+;)|(sz=\w+;))+$',payload)):
+	def create_topic_post(self,payload,parent_path):
+		"""
+        	Function to create the topic from the post payload
+
+        	:param payload: the payload to be specified in the correct format
+        	:param parent_path: the parent topic path
+        	:return: tuple containing the new topic and a boolean indicating if the topic already existed
+        	"""
+
+		if payload is None or not re.match(r'^<(\w+)>((;rt=\w+)|(;if=\w+)|(;sz=\d+))*(;ct=\d+)((;rt=\w+)|(;if=\w+)|(;sz=\d+))*$',payload):
 			return None,False
 		topicData = payload.split(";")
-		topicPath = topicData[0]
-		path = topicPath.replace("<","").replace(">","")
+		path = topicData[0][1:-1]
 		exists = False
 		for res in self.children:
-			if(res.path == base+"/"+path):
-				#RESROUCE ALREADY EXISTS
-				#return res
+			#if resource exists mark it in the boolean parameter
+			if(res.path == parent_path+"/"+path):
 				exists = True
-		# Create new Ps Resource with the new uri path
-		resource = PsResource(base+"/"+path,self.cs)
+
+		resource = TopicResource(parent_path+"/"+path,self.cs)
 		topicData.pop(0)
 		attr = {}
 		attr["obs"] = ""
-		# Extract and build the attribute object for the new Resource
 		for d in topicData:
 			key,val = d.split("=")[0],d.split("=")[1]
-			print("[BROKER] Attr: "+key+" Val:"+val)
 			if(key == 'ct'):
-				#ct specified more than once
 				if hasattr(attr,key):
+					#ct specified more than once: Error
 					return None,False
-				else:	
+				else:
 					#invalid content format
 					if int(val) not in [0,40,41,42,47,50,60]:
 						return None,False
 					elif(int(val) == 40):
 						resource.allow_children = True
-					#val = [val]
 			attr[key] = val
 		resource.attributes = attr
 		sys.stdout.flush()    
 		return resource, exists
 
 	
-	"""
-		Handle POST request to create resource on this path
-	"""
 	def render_POST_advanced(self, request, response, index = None):
-		
+		"""
+        	Function to handle POST requests
+
+        	:param request: the request
+        	:param response: the response
+		:param index: used to create multiple layers (represents the index of the resource from which to start in the hierarchy)
+        	:return: tuple containing the resource and the response
+        	"""
 		#create multiple topics
 		if index is not None:
 			parent_res,response = self.create_subtopics(request,response,index)
@@ -156,20 +121,19 @@ class PsResource(Resource):
 			#call the render_POST of the new parent resource created
 			return method(request=request,response=response,index=None)
 
-		child_res,exists = self.create_res_from_payload(request.payload,self.path)
-		# The request is not formatted according to RFC
+		child_res,exists = self.create_topic_post(request.payload,self.path)
+		#something went wrong: BAD REQUEST
 		if(child_res is None):
-			response.code = defines.Codes.BAD_REQUEST.number
 			response.payload = "Bad Request"
+			response.code = defines.Codes.BAD_REQUEST.number
 			return self,response
 		child_res.parent = self
 		
-		# The resource already exists at this topic
-		
+		# The resource already exists: modify it
 		if(exists):
 			old_res = self.cs.root[child_res.path]
 			if(len(old_res.children)>0 and not child_res.allow_children):
-				delete_subtree(old_res,False)
+				delete_tree(old_res,False)
 			old_res.attributes = child_res.attributes
 			old_res.allow_children = child_res.allow_children
 			if not old_res.check_content_type(old_res.payload):
@@ -186,6 +150,7 @@ class PsResource(Resource):
 			response.payload = self.path + " cannot have children"
 			return self, response
 		
+		#set the max_age
 		if request.max_age is not None:
 			child_res.max_age = time.time()+int(request.max_age)
 
@@ -199,8 +164,17 @@ class PsResource(Resource):
 		sys.stdout.flush()            
 		return self,response
 	
-	#used to implement POST or PUT to nonexisting topics: create the nonexisting subtopics and return the leaf topic
+	#used to implement POST or PUT to nonexisting topics: create all the nonexisting subtopics and return the leaf topic
 	def create_subtopics(self,request,response,index, update=False):
+		"""
+        	Function to handle POST and PUT to nonexisting topic, used to create all the needed sublayers
+
+        	:param request: the request
+        	:param response: the response
+		:param index: used to indicate the index of the resource from which to start in the hierarchy of topics
+		:param update: boolean parameter indicating that the last topic need to contain the value (PUBLISH)
+        	:return: tuple containing the new topic and a boolean indicating if the topic already existed
+        	"""
 		path = request.uri_path
 		topics = path.split("/")
 		base = self.path
@@ -215,18 +189,17 @@ class PsResource(Resource):
 			return None,response
 
 		for i in range(index,len(topics)):
-			new_res = PsResource(base+"/"+topics[i],self.cs)
+			new_res = TopicResource(base+"/"+topics[i],self.cs)
 			new_res.max_age = max_age
 			new_res.parent = old_res
 			if(i<len(topics)-1):
-				#new_res.attributes["ct"] = 40
 				new_res.content_type = defines.Content_types["application/link-format"]
 				new_res.allow_children = True
 				self.cs.add_resource(new_res.path,new_res)
 			old_res.children.append(new_res)
 			base = base+"/"+topics[i]
 			old_res = new_res
-		#this means it is a PUT request (create on publish)
+		#this means it is a PUT request (create on publish)(it is possible to use the request.code too)
 		if(update):
 			new_res.payload = request.payload
 			response.payload = "Created. Location: "+new_res.path
@@ -243,13 +216,15 @@ class PsResource(Resource):
 		#returns the last created resource
 		return new_res,response
 
-	"""
-		Handle PUT requests to the resource
-		- If resource exists it update the payload
-		- Otherwise the modified internal implementation of CoAPthon creates a new resource
-	"""
 	def render_PUT_advanced(self, request, response, index = None):
-		
+		"""
+        	Function to handle PUT requests.
+
+        	:param request: the request
+        	:param response: the response
+		:param index: used to create multiple layers (represents the index of the resource from which to start in the hierarchy)
+        	:return: tuple containing the resource and the response
+        	"""
 		#create on publish	
 		if index is not None:
 			return self.create_subtopics(request, response, index, True)
@@ -257,15 +232,14 @@ class PsResource(Resource):
 		if not self.check_age():
 			self.payload = request.payload
 			self.allow_children = False
-			#self.attributes["ct"] = 0
 			self.content_type = defines.Content_types["text/plain"]
-			delete_subtree(self,False)
+			delete_tree(self,False)
 			if request.max_age is not None:
 				self.max_age = time.time()+int(request.max_age)
 			else:
 				self.max_age = 0
 			response.code = defines.Codes.CREATED.number
-			response.payload = "Created. Location: "+self.path
+			response.payload = "Created"
 			response.location_path = self.path
 			return self,response
 		# Forbid updating the base ps api resource         
@@ -281,30 +255,29 @@ class PsResource(Resource):
 		
 		if request.max_age is not None:
 			self.max_age = time.time()+int(request.max_age)
-
-		print("[BROKER] "+self.path+" updated with content: "+request.payload)
 		sys.stdout.flush()
 		response.payload = "Changed"
 		response.code = defines.Codes.CHANGED.number
 		return self, response
 
-	"""
-		Handles resource DELETION as well as deletion
-		of possibly present children with a recursive deletion
-		at the end of the recursive deletion, it deletes the resource from the parent children.
-		Returns True if all goes good so that coapthon can delete the subtree root resource.
-	"""
+
 	def render_DELETE_advanced(self, request, response):
+		"""
+        	Function to handle DELETE requests
+
+        	:param request: the request
+        	:param response: the response
+		:return: tuple containing a boolean indicating the outcome of the request and the response
+        	"""
 		if(request.uri_path == "ps"):
 			response.code = defines.Codes.FORBIDDEN.number
 			response.payload = "Forbidden"            
 			return False, response
 		response.payload = "Deleted"
 		response.code = defines.Codes.DELETED.number
-		print("[BROKER] Deleting subtree of "+self.path)
 		sys.stdout.flush()    
 		if(len(self.children)>0):
-			delete_subtree(self,False)
+			delete_tree(self,False)
 		if(self.parent):
 			try:
 				self.parent.remove_children(self.path)
@@ -313,14 +286,15 @@ class PsResource(Resource):
 		return True, response
 
 
-	"""
-		Check if the input is compatible with the resource
-		content format specified at the creation.
-		-Ct=0 allows any string
-		-Ct=50 allows only JSON
-		-Others don't accept anything
-	"""
+	
 	def check_content_type(self,payload):
+		"""
+		Function to check if the input is compatible with the resource
+		content format specified at the creation. ct=0 allows any string, ct=50 allows only JSON. Add here the support to other content-formats
+
+		:param payload: the payload to check
+		:return: a boolean indicating the payload is compatible with the resource content type
+		"""
 		#this means it's a JSON
 		if re.match(r'^{\"\w+\"\:((\w+)|(\"\w+\"))(,\"\w+\"\:((\"\w+\")|(\w+)))*}$',payload):
 			if int(self.actual_content_type) in [defines.Content_types["text/plain"], defines.Content_types["application/json"]]:
@@ -342,11 +316,32 @@ class PsResource(Resource):
 			except:
 				pass
 		if(len(self.children)>0):
-			delete_subtree(self,False)
+			delete_tree(self,False)
 		return True
 
 	def check_age(self):
+		"""
+		Function that checks if the max_age of the resource is not expired
+
+		return: a boolean
+		"""
+		
 		return (self.max_age is None or self.max_age==0 or self.max_age > time.time())
 
+def delete_tree(root_resource,toDelete=True):
+	"""
+        Function to delete the tree rooted at the resource in the input
+
+        :param root_resource: the root of the tree
+        :param toDelete: boolean to specify if the roots needs to be deleted or not
+        :return: None
+        """
+	for child in root_resource.children:
+		#root_resource.children.remove(child)
+		delete_tree(child)
+	#root_resource.parent.children.remove(root_resource)
+	root_resource.children = []
+	if(toDelete):
+		root_resource.cs.remove_resource(root_resource.path)
 
 

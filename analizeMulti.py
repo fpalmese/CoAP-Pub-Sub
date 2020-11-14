@@ -3,7 +3,7 @@ import csv,sys,pyshark
 if len(sys.argv)>=2:
 	numPubs=1
 	numSubs=int(sys.argv[1])
-elif len(sys.argv)>=3:	
+if len(sys.argv)>=3:	
 	numSubs = int(sys.argv[1])
 	numPubs=int(sys.argv[2])
 
@@ -12,7 +12,6 @@ else:
 	numSubs = 1
 
 numVal = 50
-
 pubTimes = []
 pubackTimes =[]
 notifyTimes = []
@@ -180,5 +179,3 @@ print("totalBytes: ",totalBytes)
 f=open("out"+sys.argv[3]+".csv","a")
 out = str(numSubs)+";"+str(totalNotify)+";"+str(totTime)+";"+str(avgSingleTime)+";"+str(avgPubAckTime)+";"+str(avgSubAckTime)+";"+str(numVal*numSubs - totalNotify)+";"+str(extraNotify)+";"+str(cpu)+";"+str(mem)+";"+str(totalBytes)
 f.write(out.replace(".",",")+"\n")
-
-
