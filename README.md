@@ -2,7 +2,7 @@
 Repository for the CoAP publish-subscribe project for Polimi thesis
 
 ## Installation
-Please use python version 3.6.9
+Please use Python version 3.6.9
 
 Install all the requirements in a virtual environment by:
 
