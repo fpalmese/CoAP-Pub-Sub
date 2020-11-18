@@ -280,10 +280,12 @@ class CoAP(object):
                     return
                 self._observeLayer.receive_response(transaction)
                 if transaction.notification:  # pragma: no cover
+                    """
                     ack = Message()
                     ack.type = defines.Types['ACK']
                     ack = self._messageLayer.send_empty(transaction, transaction.response, ack)
                     self.send_datagram(ack)
+                    """
                     self._callback(transaction.response)
                 else:
                     self._callback(transaction.response)

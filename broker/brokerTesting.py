@@ -12,12 +12,18 @@ class CoAPBroker(CoAP):
 		root_res = TopicResource("/ps",self)
 		root_res.allow_children=True
 		self.add_resource('/ps', root_res)
-		#line to have the "/ps/topic" always ready
+		#lines to add /ps/topic
 		topic_res=TopicResource("/ps/topic",self)
 		topic_res.payload = "A"
 		topic_res.parent = root_res
 		root_res.children.append(topic_res)
 		self.add_resource('/ps/topic',topic_res)
+
+	def start(self):
+		self.listen(timeout=10)
+
+	def stop(self):
+		self.stop()
 
 def main():
 	print("Starting Broker...")
@@ -28,10 +34,10 @@ def main():
 	f.write(str(pid))
 	f.close()
 	try:
-		broker.listen(10)
+		broker.start()
 	except KeyboardInterrupt:
 		print ("Stopping Broker...")
-		broker.close()
+		broker.stop()
 
 if __name__ == '__main__':
 	main()

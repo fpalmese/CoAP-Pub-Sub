@@ -4,6 +4,7 @@ from Client.PSClientTesting import PSClient
 host="127.0.0.1"
 port=5683
 
+print(sys.version_info)
 numVal = 50
 interval=0.25
 #for test use: qos=0 and no_response=26 (true)
