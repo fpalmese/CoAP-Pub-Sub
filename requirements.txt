@@ -1,3 +1,3 @@
--e git+https://github.com/f4bio97/CoAP-Pub-Sub.git@00755b873669f8422425681633d981513b4adee7#egg=CoAPthon3&subdirectory=lib/CoAPthon3
+-e git+https://github.com/fpalmese/CoAP-Pub-Sub.git@00755b873669f8422425681633d981513b4adee7#egg=CoAPthon3&subdirectory=lib/CoAPthon3
 pkg-resources==0.0.0
 psutil==5.7.3
