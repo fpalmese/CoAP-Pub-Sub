@@ -26,6 +26,5 @@ The following files and directories are important for the execution, others not 
 - /broker directory
 - /Client directory
 
-multi_publisher.py and subscriber.py are the two scripts used to execute publishers and subscribers in the simulations
-/Client/PSClientTesting.py and /broker/brokerTesting.py contain modified version of the broker and client used for testing.
+/Client/PSClientTesting.py and /broker/brokerTesting.py contain modified version of the broker and client used for testing purposes.
 
