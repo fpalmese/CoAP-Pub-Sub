@@ -1,5 +1,5 @@
 # CoAP-Pub-Sub
-Repository for the CoAP publish-subscribe project for Politecnico di Milano thesis
+Repository for the CoAP publish-subscribe project for Politecnico di Milano MSc thesis based on the CoAPthon3 Library
 
 ## Installation
 Please use Python version 3.6.9
